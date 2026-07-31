@@ -1,4 +1,4 @@
-// ===== State & Config =====
+﻿// ===== State & Config =====
 const state = {
     tracks: [],
     currentIndex: 0,
@@ -20,87 +20,6 @@ const state = {
 
 const dom = {};
 
-// ===== Music Search & Fetch =====
-async function searchMusic(query) {
-    try {
-        const response = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=song&limit=25`);
-        const data = await response.json();
-        return data.results || [];
-    } catch (error) {
-        console.error('Search error:', error);
-        return [];
-    }
-}
-
-async function fetchAudioUrl(trackName, artistName) {
-    // Try multiple sources
-    const sources = [
-        // YouTube Music (via invidious)
-        async () => {
-            try {
-                const response = await fetch(`https://invidious.io/api/v1/search?q=${encodeURIComponent(trackName + ' ' + artistName)}&type=video`);
-                const data = await response.json();
-                if (data && data.length > 0) {
-                    return `https://invidious.io/watch?v=${data[0].videoId}`;
-                }
-                return null;
-            } catch (e) { return null; }
-        },
-        
-        // Audio from Archive.org
-        async () => {
-            try {
-                const searchTerm = encodeURIComponent(`${trackName} ${artistName}`);
-                const response = await fetch(`https://archive.org/advancedsearch.php?q=${searchTerm}&fl[]=identifier&rows=1&page=1&output=json`);
-                const data = await response.json();
-                if (data.response?.docs?.length > 0) {
-                    const id = data.response.docs[0].identifier;
-                    return `https://archive.org/download/${id}/${id}.mp3`;
-                }
-                return null;
-            } catch (e) { return null; }
-        },
-        
-        // Jamendo (free music API)
-        async () => {
-            try {
-                const response = await fetch(`https://api.jamendo.com/v3.0/tracks/?client_id=1a7b3c7d&format=json&limit=1&namesearch=${encodeURIComponent(trackName)}`);
-                const data = await response.json();
-                if (data.results?.length > 0) {
-                    return data.results[0].audio;
-                }
-                return null;
-            } catch (e) { return null; }
-        },
-        
-        // SoundCloud (via public proxy)
-        async () => {
-            try {
-                const response = await fetch(`https://soundcloud.com/search/sounds?q=${encodeURIComponent(trackName + ' ' + artistName)}`);
-                // This is a simplified approach - in production you'd need proper API
-                return null;
-            } catch (e) { return null; }
-        }
-    ];
-
-    for (const source of sources) {
-        try {
-            const url = await source();
-            if (url) return url;
-        } catch (e) {
-            continue;
-        }
-    }
-    
-    // Fallback: try to generate a search URL for the user
-    return generateFallbackUrl(trackName, artistName);
-}
-
-function generateFallbackUrl(trackName, artistName) {
-    // If we can't find a direct audio URL, provide a search URL
-    return `https://www.youtube.com/results?search_query=${encodeURIComponent(trackName + ' ' + artistName + ' audio')}`;
-}
-
 // ===== Offline Detection =====
 function checkOnlineStatus() {
     state.isOnline = navigator.onLine;
@@ -115,7 +34,6 @@ function checkOnlineStatus() {
         updatePlayButtons();
     } else {
         overlay.classList.add('hidden');
-        showNotification('🔄 Соединение восстановлено!', 'success', 2000);
     }
 }
 
@@ -205,88 +123,45 @@ function hideLoading() {
     state.isLoading = false;
 }
 
-// ===== Music Discovery =====
-async function discoverMusic(query) {
+// ===== Music Search =====
+async function searchMusic(query) {
     if (!state.isOnline) {
         showNotification('⚠️ Нет соединения с интернетом', 'error', 3000);
         return [];
     }
 
-    showLoading(`Поиск: "${query}"...`);
-    
     try {
-        const results = await searchMusic(query);
-        
-        if (!results || results.length === 0) {
-            hideLoading();
-            showNotification('❌ Ничего не найдено', 'error', 3000);
-            return [];
-        }
-
-        const tracks = results.map((item, index) => ({
-            id: Date.now() + index,
-            name: item.trackName || 'Неизвестный трек',
-            artist: item.artistName || 'Неизвестный исполнитель',
-            album: item.collectionName || 'Неизвестный альбом',
-            genre: item.primaryGenreName || 'Неизвестный жанр',
-            duration: item.trackTimeMillis ? Math.floor(item.trackTimeMillis / 1000) : 180,
-            cover: item.artworkUrl100 ? item.artworkUrl100.replace('100x100', '300x300') : generateCover(item.trackName || 'track'),
-            source: 'Online',
-            hasAudio: false,
-            audio: null,
-            previewUrl: item.previewUrl || null
-        }));
-
-        hideLoading();
-        return tracks;
+        const response = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=song&limit=25`);
+        const data = await response.json();
+        return data.results || [];
     } catch (error) {
-        console.error('Discovery error:', error);
-        hideLoading();
-        showNotification('❌ Ошибка поиска музыки', 'error', 3000);
+        console.error('Search error:', error);
         return [];
     }
 }
 
-async function loadTrackAudio(track) {
-    if (!state.isOnline) {
-        showNotification('⚠️ Нет соединения', 'error', 3000);
-        return null;
-    }
-
-    // If track already has audio URL, use it
-    if (track.audio) {
-        return track.audio;
-    }
-
-    // If track has preview URL from iTunes, use it
-    if (track.previewUrl) {
-        return track.previewUrl;
-    }
-
-    showLoading(`Загрузка: ${track.name}...`);
-    
+async function findAudioUrl(trackName, artistName) {
+    // Try to get preview from iTunes first (they provide 30-second previews)
     try {
-        const audioUrl = await fetchAudioUrl(track.name, track.artist);
-        hideLoading();
-        
-        if (audioUrl) {
-            // Check if it's a search URL (fallback)
-            if (audioUrl.includes('youtube.com/results')) {
-                showNotification(`🔍 Найдено на YouTube: ${track.name}`, 'info', 3000);
-                window.open(audioUrl, '_blank');
-                return null;
-            }
-            return audioUrl;
+        const response = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(trackName + ' ' + artistName)}&media=music&entity=song&limit=1`);
+        const data = await response.json();
+        if (data.results && data.results.length > 0 && data.results[0].previewUrl) {
+            return data.results[0].previewUrl;
         }
-        
-        showNotification('❌ Аудио не найдено', 'error', 2000);
-        return null;
-    } catch (error) {
-        console.error('Audio loading error:', error);
-        hideLoading();
-        showNotification('❌ Ошибка загрузки аудио', 'error', 2000);
-        return null;
-    }
+    } catch (e) {}
+
+    // Try Archive.org
+    try {
+        const searchTerm = encodeURIComponent(`${trackName} ${artistName}`);
+        const response = await fetch(`https://archive.org/advancedsearch.php?q=${searchTerm}&fl[]=identifier&rows=1&page=1&output=json`);
+        const data = await response.json();
+        if (data.response?.docs?.length > 0) {
+            const id = data.response.docs[0].identifier;
+            return `https://archive.org/download/${id}/${id}.mp3`;
+        }
+    } catch (e) {}
+
+    return null;
 }
 
 // ===== Page Navigation =====
@@ -314,13 +189,11 @@ function renderTracks(tracks, container) {
     
     container.innerHTML = tracks.map((track, idx) => `
         <div class="track-card" data-index="${idx}">
-            <img src="${track.cover}" alt="${escapeHtml(track.name)}" loading="lazy" onerror="this.src='https://via.placeholder.com/300/121212/fff?text=Music'">
+            <img src="${track.cover}" alt="${escapeHtml(track.name)}" loading="lazy" onerror="this.src='https://via.placeholder.com/300'">
             <h3 title="${escapeHtml(track.name)}">${escapeHtml(track.name)}</h3>
             <p class="artist-link" data-artist="${escapeHtml(track.artist)}">${escapeHtml(track.artist)}</p>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">
-                <span class="source-tag">${track.source || 'Online'}</span>
-                ${track.genre ? `<span class="source-tag">${track.genre}</span>` : ''}
-            </div>
+            <span class="source-tag">${track.source || 'Online'}</span>
+            ${track.genre ? `<span class="source-tag">${track.genre}</span>` : ''}
             <div class="track-actions">
                 <button class="btn-play" data-index="${idx}">▶ Слушать</button>
                 <button class="btn-download" data-index="${idx}" disabled>⬇ Скачать</button>
@@ -366,7 +239,7 @@ function renderAlbums(albums, container) {
     }
     container.innerHTML = albums.map(album => `
         <div class="album-card" data-album="${escapeHtml(album.name)}">
-            <img src="${album.cover}" alt="${escapeHtml(album.name)}" loading="lazy" onerror="this.src='https://via.placeholder.com/300/121212/fff?text=Album'">
+            <img src="${album.cover}" alt="${escapeHtml(album.name)}" loading="lazy" onerror="this.src='https://via.placeholder.com/300'">
             <h3 title="${escapeHtml(album.name)}">${escapeHtml(album.name)}</h3>
             <p class="artist-link" data-artist="${escapeHtml(album.artist)}">${escapeHtml(album.artist)}</p>
             <span style="font-size:12px;color:var(--text-muted);">${album.tracks} треков</span>
@@ -398,7 +271,21 @@ async function showArtistPage(artistName) {
     showLoading(`Поиск: ${artistName}...`);
     
     try {
-        const tracks = await discoverMusic(artistName);
+        const results = await searchMusic(artistName);
+        const tracks = results.map((item, index) => ({
+            id: Date.now() + index,
+            name: item.trackName || 'Неизвестный трек',
+            artist: item.artistName || artistName,
+            album: item.collectionName || 'Неизвестный альбом',
+            genre: item.primaryGenreName || 'Неизвестный жанр',
+            duration: item.trackTimeMillis ? Math.floor(item.trackTimeMillis / 1000) : 180,
+            cover: item.artworkUrl100 ? item.artworkUrl100.replace('100x100', '300x300') : generateCover(item.trackName || 'track'),
+            source: 'Online',
+            hasAudio: false,
+            audio: null,
+            previewUrl: item.previewUrl || null
+        }));
+
         const data = {
             listeners: Math.floor(Math.random() * 10000000).toLocaleString('ru-RU'),
             bio: `${artistName} — музыкальный исполнитель. Информация загружается из открытых источников.`,
@@ -417,11 +304,10 @@ async function showArtistPage(artistName) {
         dom.artistBio.textContent = data.bio;
         dom.artistHeroBg.style.background = `linear-gradient(180deg, rgba(0,0,0,0.5) 0%, var(--bg-primary) 100%), url(${data.image}) center/cover`;
         
-        // Render tracks
         dom.artistTrackList.innerHTML = data.tracks.map((track, idx) => `
             <div class="track-list-item" data-track-id="${track.id}">
                 <span class="track-number">${String(idx + 1).padStart(2, '0')}</span>
-                <img src="${track.cover}" alt="" class="track-list-cover" onerror="this.src='https://via.placeholder.com/48/121212/fff?text=?'">
+                <img src="${track.cover}" alt="" class="track-list-cover" onerror="this.src='https://via.placeholder.com/48'">
                 <div class="track-list-info">
                     <div class="track-list-name">${escapeHtml(track.name)}</div>
                     <div class="track-list-artists">${escapeHtml(track.artist)}</div>
@@ -459,10 +345,9 @@ async function showArtistPage(artistName) {
             });
         });
 
-        // Render release
         if (data.release) {
             dom.artistRelease.innerHTML = `
-                <img src="${data.release.cover}" alt="${escapeHtml(data.release.name)}" onerror="this.src='https://via.placeholder.com/300/121212/fff?text=Release'">
+                <img src="${data.release.cover}" alt="${escapeHtml(data.release.name)}" onerror="this.src='https://via.placeholder.com/300'">
                 <div class="release-info">
                     <h4>${escapeHtml(data.release.name)}</h4>
                     <p>Сингл · ${data.release.year}</p>
@@ -470,7 +355,6 @@ async function showArtistPage(artistName) {
             `;
         }
 
-        // Update like button
         const isFollowed = state.followedArtists.includes(artistName);
         dom.artistLikeBtn.textContent = isFollowed ? '❤️' : '♡';
 
@@ -509,8 +393,7 @@ async function playTrack(index) {
         return;
     }
 
-    // If this is the same track, just toggle play
-    if (state.currentTrack && state.currentTrack.id === track.id) {
+    if (state.currentTrack && state.currentTrack.id === track.id && state.isPlaying) {
         togglePlay();
         return;
     }
@@ -521,22 +404,31 @@ async function playTrack(index) {
     updateMiniPlayer(track);
     updateFullscreenPlayer(track);
 
-    // Try to load audio
+    // Try to get audio URL
     if (!track.hasAudio || !track.audio) {
-        const audioUrl = await loadTrackAudio(track);
+        showLoading(`Загрузка: ${track.name}...`);
+        let audioUrl = null;
+        
+        // Try preview URL first
+        if (track.previewUrl) {
+            audioUrl = track.previewUrl;
+        } else {
+            audioUrl = await findAudioUrl(track.name, track.artist);
+        }
+        
+        hideLoading();
+        
         if (audioUrl) {
             track.audio = audioUrl;
             track.hasAudio = true;
             track.source = 'Online';
         } else {
-            // If no audio found, play as demo
             showNotification(`🎧 Демо: ${track.name} — ${track.artist}`, 'info', 3000);
             playDemoTrack(track);
             return;
         }
     }
 
-    // Play the audio
     if (track.audio && track.hasAudio) {
         dom.audioPlayer.src = track.audio;
         dom.audioPlayer.play().then(() => {
@@ -547,7 +439,6 @@ async function playTrack(index) {
             showNotification('⚠️ Ошибка воспроизведения', 'error');
             state.isPlaying = false;
             updatePlayButtons();
-            // Fallback to demo
             playDemoTrack(track);
         });
     } else {
@@ -559,7 +450,6 @@ function playDemoTrack(track) {
     state.isPlaying = true;
     updatePlayButtons();
     
-    // Simulate playback
     if (track.duration) {
         let elapsed = 0;
         const interval = setInterval(() => {
@@ -586,7 +476,7 @@ function playDemoTrack(track) {
 }
 
 function updateMiniPlayer(track) {
-    dom.miniCover.src = track.cover || 'https://via.placeholder.com/60/121212/fff?text=?';
+    dom.miniCover.src = track.cover || 'https://via.placeholder.com/60';
     dom.miniTitle.textContent = track.name || 'Без названия';
     dom.miniArtist.textContent = track.artist || 'Неизвестный';
     dom.miniTotalTime.textContent = formatTime(track.duration);
@@ -598,10 +488,10 @@ function updateMiniPlayer(track) {
 }
 
 function updateFullscreenPlayer(track) {
-    dom.fsArtwork.src = track.cover || 'https://via.placeholder.com/400/121212/fff?text=?';
+    dom.fsArtwork.src = track.cover || 'https://via.placeholder.com/400';
     dom.fsTitle.textContent = track.name || 'Без названия';
     dom.fsArtist.textContent = track.artist || 'Неизвестный';
-    dom.fsBg.style.backgroundImage = `url(${track.cover || 'https://via.placeholder.com/400/121212/fff?text=?'})`;
+    dom.fsBg.style.backgroundImage = `url(${track.cover || 'https://via.placeholder.com/400'})`;
 }
 
 function updatePlayButtons() {
@@ -672,42 +562,63 @@ async function performSearch(query) {
         if (state.searchHistory.length > 10) state.searchHistory.pop();
     }
 
-    const tracks = await discoverMusic(query);
-    state.tracks = tracks;
-    state.playlist = tracks;
-
-    // Generate some album suggestions based on search
-    const albums = tracks.slice(0, 6).map((track, i) => ({
-        id: Date.now() + i,
-        name: track.album || `${query} Альбом`,
-        artist: track.artist,
-        cover: track.cover || generateCover(`${query}album${i}`),
-        tracks: Math.floor(Math.random() * 12) + 5
-    }));
-
-    dom.searchResults.innerHTML = `
-        <section>
-            <h2 class="section-title">🔍 Результаты: "${escapeHtml(query)}"</h2>
-            <div class="tracks-grid" id="searchTracksContainer"></div>
-        </section>
-        ${albums.length > 0 ? `
-        <section>
-            <h2 class="section-title">Похожие альбомы</h2>
-            <div class="albums-grid" id="searchAlbumsContainer"></div>
-        </section>` : ''}
-    `;
+    showLoading(`Поиск: "${query}"...`);
     
-    renderTracks(tracks, document.getElementById('searchTracksContainer'));
-    if (albums.length > 0) {
-        renderAlbums(albums, document.getElementById('searchAlbumsContainer'));
+    try {
+        const results = await searchMusic(query);
+        const tracks = results.map((item, index) => ({
+            id: Date.now() + index,
+            name: item.trackName || 'Неизвестный трек',
+            artist: item.artistName || 'Неизвестный исполнитель',
+            album: item.collectionName || 'Неизвестный альбом',
+            genre: item.primaryGenreName || 'Неизвестный жанр',
+            duration: item.trackTimeMillis ? Math.floor(item.trackTimeMillis / 1000) : 180,
+            cover: item.artworkUrl100 ? item.artworkUrl100.replace('100x100', '300x300') : generateCover(item.trackName || 'track'),
+            source: 'Online',
+            hasAudio: false,
+            audio: null,
+            previewUrl: item.previewUrl || null
+        }));
+
+        state.tracks = tracks;
+        state.playlist = tracks;
+
+        const albums = tracks.slice(0, 6).map((track, i) => ({
+            id: Date.now() + i,
+            name: track.album || `${query} Альбом`,
+            artist: track.artist,
+            cover: track.cover || generateCover(`${query}album${i}`),
+            tracks: Math.floor(Math.random() * 12) + 5
+        }));
+
+        dom.searchResults.innerHTML = `
+            <section>
+                <h2 class="section-title">🔍 Результаты: "${escapeHtml(query)}"</h2>
+                <div class="tracks-grid" id="searchTracksContainer"></div>
+            </section>
+            ${albums.length > 0 ? `
+            <section>
+                <h2 class="section-title">Похожие альбомы</h2>
+                <div class="albums-grid" id="searchAlbumsContainer"></div>
+            </section>` : ''}
+        `;
+        
+        renderTracks(tracks, document.getElementById('searchTracksContainer'));
+        if (albums.length > 0) {
+            renderAlbums(albums, document.getElementById('searchAlbumsContainer'));
+        }
+        
+        hideLoading();
+        showPage('search');
+    } catch (error) {
+        console.error('Search error:', error);
+        hideLoading();
+        showNotification('❌ Ошибка поиска', 'error', 3000);
     }
-    
-    showPage('search');
 }
 
 // ===== Setup =====
 function setupUI() {
-    // Navigation
     $$('.nav-item').forEach(item => {
         item.addEventListener('click', (e) => {
             e.preventDefault();
@@ -715,7 +626,6 @@ function setupUI() {
         });
     });
 
-    // Search
     dom.searchInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') performSearch(dom.searchInput.value);
     });
@@ -723,7 +633,6 @@ function setupUI() {
         if (e.key === 'Enter') performSearch(dom.searchInputPage.value);
     });
 
-    // Mini player controls
     dom.miniPlayBtn.addEventListener('click', togglePlay);
     dom.miniNext.addEventListener('click', nextTrack);
     dom.miniPrev.addEventListener('click', prevTrack);
@@ -751,7 +660,6 @@ function setupUI() {
         }
     });
 
-    // Fullscreen controls
     dom.fsCloseBtn.addEventListener('click', closeFullscreen);
     dom.fsPlayBtn.addEventListener('click', togglePlay);
     dom.fsNext.addEventListener('click', nextTrack);
@@ -792,11 +700,9 @@ function setupUI() {
         showNotification('📋 Очередь воспроизведения', 'info');
     });
 
-    // Lyrics modal
     dom.lyricsModalClose.addEventListener('click', () => dom.lyricsModal.classList.add('hidden'));
     dom.lyricsModalOverlay.addEventListener('click', () => dom.lyricsModal.classList.add('hidden'));
 
-    // Artist page buttons
     dom.artistPlayBtn.addEventListener('click', async () => {
         if (state.artistTracks.length > 0) await playTrack(0);
     });
@@ -820,7 +726,6 @@ function setupUI() {
         showNotification('📤 Ссылка скопирована', 'success', 1500);
     });
 
-    // Station/Genre cards
     $$('.station-card, .genre-card').forEach(card => {
         card.addEventListener('click', async () => {
             const genre = card.dataset.genre;
@@ -828,7 +733,6 @@ function setupUI() {
         });
     });
 
-    // Audio events
     dom.audioPlayer.addEventListener('timeupdate', () => {
         const audio = dom.audioPlayer;
         if (audio.duration && !isNaN(audio.duration)) {
@@ -865,7 +769,6 @@ function setupUI() {
         }
     });
 
-    // Offline retry button
     dom.offlineRetryBtn.addEventListener('click', () => {
         if (navigator.onLine) {
             document.getElementById('offlineOverlay').classList.add('hidden');
@@ -876,7 +779,6 @@ function setupUI() {
         }
     });
 
-    // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
         if (e.target.tagName === 'INPUT') return;
         if (e.key === ' ') { e.preventDefault(); togglePlay(); }
@@ -892,7 +794,6 @@ function setupUI() {
         }
     });
 
-    // Theme toggle
     let isDark = true;
     dom.themeToggle.addEventListener('click', () => {
         isDark = !isDark;
@@ -922,13 +823,9 @@ function showLyricsModal(track) {
 // ===== Init =====
 document.addEventListener('DOMContentLoaded', () => {
     initDom();
-    
-    // Check initial online status
     checkOnlineStatus();
-    
     setupUI();
     
-    // Show welcome message
     dom.tracksContainer.innerHTML = `
         <div style="grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--text-muted);">
             <div style="font-size:48px;margin-bottom:20px;">🎵</div>
@@ -944,9 +841,7 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
     `;
     
-    // Set initial theme button
     dom.themeToggle.textContent = '🌙';
     
     console.log('🎵 MusicHub v5.0 - Real-time music discovery');
-    console.log('📡 Поиск музыки в реальном времени из открытых источников');
 });
