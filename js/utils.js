@@ -43,7 +43,10 @@ export function saveToCache(key, data, duration = API_CONFIG.CACHE_DURATION) {
         console.error(`[${ERROR_CODES.CACHE_ERROR}]`, error);
     }
 }
-
+export function getImageUrl(url, fallback = 'https://picsum.photos/seed/' + Math.random() + '/300/300') {
+    if (!url || url.includes('via.placeholder.com')) return fallback;
+    return url;
+}
 export function loadFromCache(key) {
     try {
         const raw = localStorage.getItem(`musichub_${key}`);
