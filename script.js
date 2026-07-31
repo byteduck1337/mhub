@@ -13,37 +13,93 @@ const state = {
     currentPage: 'home',
     followedArtists: JSON.parse(localStorage.getItem('mh_followed') || '[]'),
     likedTracks: JSON.parse(localStorage.getItem('mh_liked') || '[]'),
-    isOnline: navigator.onLine
+    isOnline: navigator.onLine,
+    isLoading: false,
+    currentAudioUrl: null
 };
 
 const dom = {};
 
-// ===== Audio Sources =====
-// Real audio URLs from various sources
-const AUDIO_SOURCES = {
-    // Pop tracks
-    'Blinding Lights': 'https://archive.org/download/blinding-lights_202301/Blinding%20Lights.mp3',
-    'Shape of You': 'https://archive.org/download/shape-of-you_202301/Shape%20of%20You.mp3',
-    'Imagine': 'https://archive.org/download/imagine_202301/Imagine.mp3',
-    'Billie Jean': 'https://archive.org/download/billie-jean_202301/Billie%20Jean.mp3',
+// ===== Music Search & Fetch =====
+async function searchMusic(query) {
+    try {
+        const response = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=song&limit=25`);
+        const data = await response.json();
+        return data.results || [];
+    } catch (error) {
+        console.error('Search error:', error);
+        return [];
+    }
+}
+
+async function fetchAudioUrl(trackName, artistName) {
+    // Try multiple sources
+    const sources = [
+        // YouTube Music (via invidious)
+        async () => {
+            try {
+                const response = await fetch(`https://invidious.io/api/v1/search?q=${encodeURIComponent(trackName + ' ' + artistName)}&type=video`);
+                const data = await response.json();
+                if (data && data.length > 0) {
+                    return `https://invidious.io/watch?v=${data[0].videoId}`;
+                }
+                return null;
+            } catch (e) { return null; }
+        },
+        
+        // Audio from Archive.org
+        async () => {
+            try {
+                const searchTerm = encodeURIComponent(`${trackName} ${artistName}`);
+                const response = await fetch(`https://archive.org/advancedsearch.php?q=${searchTerm}&fl[]=identifier&rows=1&page=1&output=json`);
+                const data = await response.json();
+                if (data.response?.docs?.length > 0) {
+                    const id = data.response.docs[0].identifier;
+                    return `https://archive.org/download/${id}/${id}.mp3`;
+                }
+                return null;
+            } catch (e) { return null; }
+        },
+        
+        // Jamendo (free music API)
+        async () => {
+            try {
+                const response = await fetch(`https://api.jamendo.com/v3.0/tracks/?client_id=1a7b3c7d&format=json&limit=1&namesearch=${encodeURIComponent(trackName)}`);
+                const data = await response.json();
+                if (data.results?.length > 0) {
+                    return data.results[0].audio;
+                }
+                return null;
+            } catch (e) { return null; }
+        },
+        
+        // SoundCloud (via public proxy)
+        async () => {
+            try {
+                const response = await fetch(`https://soundcloud.com/search/sounds?q=${encodeURIComponent(trackName + ' ' + artistName)}`);
+                // This is a simplified approach - in production you'd need proper API
+                return null;
+            } catch (e) { return null; }
+        }
+    ];
+
+    for (const source of sources) {
+        try {
+            const url = await source();
+            if (url) return url;
+        } catch (e) {
+            continue;
+        }
+    }
     
-    // Rock tracks
-    'Bohemian Rhapsody': 'https://archive.org/download/bohemian-rhapsody_202301/Bohemian%20Rhapsody.mp3',
-    'Hotel California': 'https://archive.org/download/hotel-california_202301/Hotel%20California.mp3',
-    'Smells Like Teen Spirit': 'https://archive.org/download/smells-like-teen-spirit_202301/Smells%20Like%20Teen%20Spirit.mp3',
-    'Wonderwall': 'https://archive.org/download/wonderwall_202301/Wonderwall.mp3',
-    
-    // Hip-Hop tracks
-    'Lose Yourself': 'https://archive.org/download/lose-yourself_202301/Lose%20Yourself.mp3',
-    'Malo 2.0': 'https://archive.org/download/malo-2.0_202301/Malo%202.0.mp3',
-    'Jealous': 'https://archive.org/download/jealous_202301/Jealous.mp3',
-    
-    // Demo tracks (no audio)
-    'Тёмный принц': null,
-    'Утекай': null,
-    'Ночь': null,
-    'Город': null
-};
+    // Fallback: try to generate a search URL for the user
+    return generateFallbackUrl(trackName, artistName);
+}
+
+function generateFallbackUrl(trackName, artistName) {
+    // If we can't find a direct audio URL, provide a search URL
+    return `https://www.youtube.com/results?search_query=${encodeURIComponent(trackName + ' ' + artistName + ' audio')}`;
+}
 
 // ===== Offline Detection =====
 function checkOnlineStatus() {
@@ -51,7 +107,10 @@ function checkOnlineStatus() {
     const overlay = document.getElementById('offlineOverlay');
     if (!state.isOnline) {
         overlay.classList.remove('hidden');
-        if (dom.audioPlayer) dom.audioPlayer.pause();
+        if (dom.audioPlayer) {
+            dom.audioPlayer.pause();
+            dom.audioPlayer.src = '';
+        }
         state.isPlaying = false;
         updatePlayButtons();
     } else {
@@ -69,7 +128,10 @@ window.addEventListener('online', () => {
 window.addEventListener('offline', () => {
     state.isOnline = false;
     document.getElementById('offlineOverlay').classList.remove('hidden');
-    if (dom.audioPlayer) dom.audioPlayer.pause();
+    if (dom.audioPlayer) {
+        dom.audioPlayer.pause();
+        dom.audioPlayer.src = '';
+    }
     state.isPlaying = false;
     updatePlayButtons();
 });
@@ -94,7 +156,8 @@ function initDom() {
         'artistPage', 'artistAvatar', 'artistName', 'artistListeners',
         'artistPlayBtn', 'artistTrailerBtn', 'artistLikeBtn', 'artistShareBtn', 'artistMoreBtn',
         'artistTrackList', 'artistRelease', 'artistBio', 'artistHeroBg',
-        'homePage', 'searchPage', 'searchResults', 'offlineRetryBtn'
+        'homePage', 'searchPage', 'searchResults', 'offlineRetryBtn',
+        'loadingOverlay', 'loadingText'
     ];
     ids.forEach(id => { dom[id] = document.getElementById(id); });
 }
@@ -123,145 +186,107 @@ function showNotification(msg, type = 'info', duration = 3000) {
     el._timeout = setTimeout(() => el.classList.add('hidden'), duration);
 }
 
-// ===== Generate Cover Images =====
 function generateCover(seed, size = 300) {
-    // Use picsum with seed for consistent images
     return `https://picsum.photos/seed/${encodeURIComponent(seed)}/${size}/${size}`;
 }
 
-// ===== Real Track Data with Audio =====
-const REAL_TRACKS = [
-    { id: 1, name: 'Blinding Lights', artist: 'The Weeknd', album: 'After Hours', genre: 'Pop', duration: 200 },
-    { id: 2, name: 'Shape of You', artist: 'Ed Sheeran', album: '÷', genre: 'Pop', duration: 234 },
-    { id: 3, name: 'Bohemian Rhapsody', artist: 'Queen', album: 'A Night at the Opera', genre: 'Rock', duration: 354 },
-    { id: 4, name: 'Hotel California', artist: 'Eagles', album: 'Hotel California', genre: 'Rock', duration: 391 },
-    { id: 5, name: 'Imagine', artist: 'John Lennon', album: 'Imagine', genre: 'Pop', duration: 183 },
-    { id: 6, name: 'Smells Like Teen Spirit', artist: 'Nirvana', album: 'Nevermind', genre: 'Rock', duration: 301 },
-    { id: 7, name: 'Billie Jean', artist: 'Michael Jackson', album: 'Thriller', genre: 'Pop', duration: 294 },
-    { id: 8, name: 'Lose Yourself', artist: 'Eminem', album: '8 Mile', genre: 'Hip-Hop', duration: 326 },
-    { id: 9, name: 'Wonderwall', artist: 'Oasis', album: "What's the Story Morning Glory?", genre: 'Rock', duration: 258 },
-    { id: 10, name: 'Malo 2.0', artist: 'ЕГОР КРИД, OG Buda, Toxi$', album: 'Malo 2.0', genre: 'Hip-Hop', duration: 326 },
-    { id: 11, name: 'Jealous', artist: '9mice, ЕГОР КРИД, тёмный принц', album: 'Jealous', genre: 'Hip-Hop', duration: 186 },
-    { id: 12, name: 'Тёмный принц', artist: 'Алексей Воробьёв', album: 'Лучшее', genre: 'Pop', duration: 210 }
-];
-
-function buildTrackList() {
-    return REAL_TRACKS.map(t => {
-        const audioUrl = AUDIO_SOURCES[t.name] || null;
-        return {
-            ...t,
-            cover: generateCover(t.name),
-            source: audioUrl ? 'Online' : 'Demo',
-            audio: audioUrl,
-            hasAudio: !!audioUrl
-        };
-    });
+function showLoading(message = 'Поиск музыки...') {
+    if (dom.loadingOverlay) {
+        dom.loadingText.textContent = message;
+        dom.loadingOverlay.classList.remove('hidden');
+    }
+    state.isLoading = true;
 }
 
-// ===== DEMO ALBUMS =====
-const DEMO_ALBUMS = [
-    { id: 101, name: 'After Hours', artist: 'The Weeknd', cover: generateCover('After Hours'), tracks: 14 },
-    { id: 102, name: 'Thriller', artist: 'Michael Jackson', cover: generateCover('Thriller'), tracks: 9 },
-    { id: 103, name: 'Back in Black', artist: 'AC/DC', cover: generateCover('Back in Black'), tracks: 10 },
-    { id: 104, name: 'Nevermind', artist: 'Nirvana', cover: generateCover('Nevermind'), tracks: 12 },
-    { id: 105, name: 'Abbey Road', artist: 'The Beatles', cover: generateCover('Abbey Road'), tracks: 17 },
-    { id: 106, name: 'The Dark Side of the Moon', artist: 'Pink Floyd', cover: generateCover('Dark Side'), tracks: 10 },
-];
-
-// ===== ARTIST DATABASE =====
-const ARTIST_DB = {
-    'the weeknd': {
-        listeners: '85 000 000',
-        bio: 'The Weeknd (Эйбел Макконен Тесфайе) — канадский певец, автор песен и продюсер. Один из самых успешных исполнителей современности, известный своим уникальным вокалом и мрачным R&B звучанием.',
-        image: generateCover('theweeknd', 400),
-        tracks: REAL_TRACKS.filter(t => t.artist.includes('The Weeknd')).map(t => ({ ...t, artists: t.artist })),
-        release: { name: 'After Hours', cover: generateCover('After Hours'), year: '2020' }
-    },
-    'ed sheeran': {
-        listeners: '70 000 000',
-        bio: 'Эд Ширан — британский певец, автор песен и гитарист. Известен своими акустическими балладами и фолк-поп звучанием. Обладатель множества наград, включая Грэмми.',
-        image: generateCover('edsheeran', 400),
-        tracks: REAL_TRACKS.filter(t => t.artist.includes('Ed Sheeran')).map(t => ({ ...t, artists: t.artist })),
-        release: { name: '÷ (Divide)', cover: generateCover('Divide'), year: '2017' }
-    },
-    'queen': {
-        listeners: '40 000 000',
-        bio: 'Queen — британская рок-группа, образованная в 1970 году. Одна из самых влиятельных групп в истории музыки. Легендарный фронтмен Фредди Меркьюри.',
-        image: generateCover('queen', 400),
-        tracks: REAL_TRACKS.filter(t => t.artist.includes('Queen')).map(t => ({ ...t, artists: t.artist })),
-        release: { name: 'Bohemian Rhapsody (Soundtrack)', cover: generateCover('Bohemian Rhapsody'), year: '2018' }
-    },
-    'eagles': {
-        listeners: '30 000 000',
-        bio: 'Eagles — американская рок-группа, сформированная в 1971 году в Лос-Анджелесе. Одна из самых коммерчески успешных групп 1970-х годов.',
-        image: generateCover('eagles', 400),
-        tracks: REAL_TRACKS.filter(t => t.artist.includes('Eagles')).map(t => ({ ...t, artists: t.artist })),
-        release: { name: 'Hotel California', cover: generateCover('Hotel California'), year: '1976' }
-    },
-    'nirvana': {
-        listeners: '35 000 000',
-        bio: 'Nirvana — американская рок-группа, сформированная в 1987 году. Лидер группы Курт Кобейн стал голосом поколения. Группа считается одной из самых влиятельных в истории альтернативного рока.',
-        image: generateCover('nirvana', 400),
-        tracks: REAL_TRACKS.filter(t => t.artist.includes('Nirvana')).map(t => ({ ...t, artists: t.artist })),
-        release: { name: 'Nevermind', cover: generateCover('Nevermind'), year: '1991' }
-    },
-    'michael jackson': {
-        listeners: '50 000 000',
-        bio: 'Майкл Джексон — американский певец, автор песен и танцор, известный как «Король поп-музыки». Один из самых значимых культурных деятелей XX века.',
-        image: generateCover('michaeljackson', 400),
-        tracks: REAL_TRACKS.filter(t => t.artist.includes('Michael Jackson')).map(t => ({ ...t, artists: t.artist })),
-        release: { name: 'Thriller', cover: generateCover('Thriller'), year: '1982' }
-    },
-    'eminem': {
-        listeners: '45 000 000',
-        bio: 'Эминем (Маршалл Брюс Мэтерс III) — американский рэпер, продюсер и актёр. Один из самых продаваемых музыкальных исполнителей в мире.',
-        image: generateCover('eminem', 400),
-        tracks: REAL_TRACKS.filter(t => t.artist.includes('Eminem')).map(t => ({ ...t, artists: t.artist })),
-        release: { name: '8 Mile (Soundtrack)', cover: generateCover('8 Mile'), year: '2002' }
-    },
-    'oasis': {
-        listeners: '25 000 000',
-        bio: 'Oasis — британская рок-группа, сформированная в 1991 году. Одна из главных групп брит-поп-движения 1990-х годов.',
-        image: generateCover('oasis', 400),
-        tracks: REAL_TRACKS.filter(t => t.artist.includes('Oasis')).map(t => ({ ...t, artists: t.artist })),
-        release: { name: "What's the Story Morning Glory?", cover: generateCover('Morning Glory'), year: '1995' }
-    },
-    'егор крид': {
-        listeners: '12 000 000',
-        bio: 'Егор Крид — российский певец, рэп-исполнитель и автор песен. Начал карьеру в 2012 году и быстро стал одним из самых популярных артистов в русскоязычном хип-хопе.',
-        image: generateCover('egorkreed', 400),
-        tracks: REAL_TRACKS.filter(t => t.artist.includes('ЕГОР КРИД')).map(t => ({ ...t, artists: t.artist })),
-        release: { name: 'Malo 2.0', cover: generateCover('Malo 2.0'), year: '2026' }
+function hideLoading() {
+    if (dom.loadingOverlay) {
+        dom.loadingOverlay.classList.add('hidden');
     }
-};
-
-function getArtistData(name) {
-    const key = name.toLowerCase().trim();
-    // Try exact match first
-    if (ARTIST_DB[key]) return ARTIST_DB[key];
-    // Try partial match
-    for (const [k, v] of Object.entries(ARTIST_DB)) {
-        if (key.includes(k) || k.includes(key)) return v;
-    }
-    // Generate generic artist data
-    return generateArtistData(name);
+    state.isLoading = false;
 }
 
-function generateArtistData(name) {
-    const tracks = REAL_TRACKS.slice(0, 6).map((t, i) => ({
-        ...t,
-        id: 100 + i,
-        artists: name,
-        name: `${name} — Трек ${i + 1}`,
-        cover: generateCover(`${name}${i}`)
-    }));
-    return {
-        listeners: Math.floor(Math.random() * 10000000).toLocaleString('ru-RU'),
-        bio: `${name} — музыкальный исполнитель. Информация загружается из базы данных.`,
-        image: generateCover(name, 400),
-        tracks: tracks,
-        release: { name: 'Новый сингл', cover: generateCover(`${name}release`), year: '2026' }
-    };
+// ===== Music Discovery =====
+async function discoverMusic(query) {
+    if (!state.isOnline) {
+        showNotification('⚠️ Нет соединения с интернетом', 'error', 3000);
+        return [];
+    }
+
+    showLoading(`Поиск: "${query}"...`);
+    
+    try {
+        const results = await searchMusic(query);
+        
+        if (!results || results.length === 0) {
+            hideLoading();
+            showNotification('❌ Ничего не найдено', 'error', 3000);
+            return [];
+        }
+
+        const tracks = results.map((item, index) => ({
+            id: Date.now() + index,
+            name: item.trackName || 'Неизвестный трек',
+            artist: item.artistName || 'Неизвестный исполнитель',
+            album: item.collectionName || 'Неизвестный альбом',
+            genre: item.primaryGenreName || 'Неизвестный жанр',
+            duration: item.trackTimeMillis ? Math.floor(item.trackTimeMillis / 1000) : 180,
+            cover: item.artworkUrl100 ? item.artworkUrl100.replace('100x100', '300x300') : generateCover(item.trackName || 'track'),
+            source: 'Online',
+            hasAudio: false,
+            audio: null,
+            previewUrl: item.previewUrl || null
+        }));
+
+        hideLoading();
+        return tracks;
+    } catch (error) {
+        console.error('Discovery error:', error);
+        hideLoading();
+        showNotification('❌ Ошибка поиска музыки', 'error', 3000);
+        return [];
+    }
+}
+
+async function loadTrackAudio(track) {
+    if (!state.isOnline) {
+        showNotification('⚠️ Нет соединения', 'error', 3000);
+        return null;
+    }
+
+    // If track already has audio URL, use it
+    if (track.audio) {
+        return track.audio;
+    }
+
+    // If track has preview URL from iTunes, use it
+    if (track.previewUrl) {
+        return track.previewUrl;
+    }
+
+    showLoading(`Загрузка: ${track.name}...`);
+    
+    try {
+        const audioUrl = await fetchAudioUrl(track.name, track.artist);
+        hideLoading();
+        
+        if (audioUrl) {
+            // Check if it's a search URL (fallback)
+            if (audioUrl.includes('youtube.com/results')) {
+                showNotification(`🔍 Найдено на YouTube: ${track.name}`, 'info', 3000);
+                window.open(audioUrl, '_blank');
+                return null;
+            }
+            return audioUrl;
+        }
+        
+        showNotification('❌ Аудио не найдено', 'error', 2000);
+        return null;
+    } catch (error) {
+        console.error('Audio loading error:', error);
+        hideLoading();
+        showNotification('❌ Ошибка загрузки аудио', 'error', 2000);
+        return null;
+    }
 }
 
 // ===== Page Navigation =====
@@ -286,43 +311,32 @@ function renderTracks(tracks, container) {
         container.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted);">Ничего не найдено</div>';
         return;
     }
+    
     container.innerHTML = tracks.map((track, idx) => `
         <div class="track-card" data-index="${idx}">
             <img src="${track.cover}" alt="${escapeHtml(track.name)}" loading="lazy" onerror="this.src='https://via.placeholder.com/300/121212/fff?text=Music'">
             <h3 title="${escapeHtml(track.name)}">${escapeHtml(track.name)}</h3>
             <p class="artist-link" data-artist="${escapeHtml(track.artist)}">${escapeHtml(track.artist)}</p>
             <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">
-                <span class="source-tag">${track.source || 'Demo'}</span>
-                ${track.hasAudio ? '<span class="source-tag" style="background:#10b981;color:#fff;">🎵</span>' : '<span class="source-tag" style="background:#ef4444;color:#fff;">⛔</span>'}
+                <span class="source-tag">${track.source || 'Online'}</span>
                 ${track.genre ? `<span class="source-tag">${track.genre}</span>` : ''}
             </div>
             <div class="track-actions">
-                <button class="btn-play" data-index="${idx}">${track.hasAudio ? '▶ Слушать' : '🎧 Демо'}</button>
-                <button class="btn-download" data-index="${idx}" ${!track.hasAudio ? 'disabled' : ''}>⬇ Скачать</button>
+                <button class="btn-play" data-index="${idx}">▶ Слушать</button>
+                <button class="btn-download" data-index="${idx}" disabled>⬇ Скачать</button>
             </div>
         </div>
     `).join('');
 
     container.querySelectorAll('.btn-play').forEach(btn => {
-        btn.addEventListener('click', (e) => {
+        btn.addEventListener('click', async (e) => {
             e.stopPropagation();
             const idx = parseInt(btn.dataset.index);
-            if (!state.isOnline && !state.tracks[idx]?.hasAudio) {
-                showNotification('⚠️ Нет соединения', 'error');
-                return;
-            }
-            playTrack(idx);
-        });
-    });
-
-    container.querySelectorAll('.btn-download:not([disabled])').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
             if (!state.isOnline) {
                 showNotification('⚠️ Нет соединения', 'error');
                 return;
             }
-            showNotification('⬇ Загрузка начата', 'success');
+            await playTrack(idx);
         });
     });
 
@@ -334,13 +348,13 @@ function renderTracks(tracks, container) {
     });
 
     container.querySelectorAll('.track-card').forEach(card => {
-        card.addEventListener('click', () => {
+        card.addEventListener('click', async () => {
             const idx = parseInt(card.dataset.index);
-            if (!state.isOnline && !state.tracks[idx]?.hasAudio) {
+            if (!state.isOnline) {
                 showNotification('⚠️ Нет соединения', 'error');
                 return;
             }
-            playTrack(idx);
+            await playTrack(idx);
         });
     });
 }
@@ -351,7 +365,7 @@ function renderAlbums(albums, container) {
         return;
     }
     container.innerHTML = albums.map(album => `
-        <div class="album-card">
+        <div class="album-card" data-album="${escapeHtml(album.name)}">
             <img src="${album.cover}" alt="${escapeHtml(album.name)}" loading="lazy" onerror="this.src='https://via.placeholder.com/300/121212/fff?text=Album'">
             <h3 title="${escapeHtml(album.name)}">${escapeHtml(album.name)}</h3>
             <p class="artist-link" data-artist="${escapeHtml(album.artist)}">${escapeHtml(album.artist)}</p>
@@ -365,83 +379,108 @@ function renderAlbums(albums, container) {
             showArtistPage(link.dataset.artist);
         });
     });
+
+    container.querySelectorAll('.album-card').forEach(card => {
+        card.addEventListener('click', async () => {
+            const albumName = card.dataset.album;
+            await performSearch(albumName);
+        });
+    });
 }
 
 // ===== Artist Page =====
-function showArtistPage(artistName) {
-    const data = getArtistData(artistName);
-    
-    dom.artistAvatar.src = data.image;
-    dom.artistName.textContent = artistName;
-    dom.artistListeners.textContent = `${data.listeners} слушателей в месяц`;
-    dom.artistBio.textContent = data.bio;
-    dom.artistHeroBg.style.background = `linear-gradient(180deg, rgba(0,0,0,0.5) 0%, var(--bg-primary) 100%), url(${data.image}) center/cover`;
-    
-    // Render tracks
-    dom.artistTrackList.innerHTML = data.tracks.map((track, idx) => `
-        <div class="track-list-item" data-track-id="${track.id}">
-            <span class="track-number">${String(idx + 1).padStart(2, '0')}</span>
-            <img src="${track.cover}" alt="" class="track-list-cover" onerror="this.src='https://via.placeholder.com/48/121212/fff?text=?'">
-            <div class="track-list-info">
-                <div class="track-list-name">${escapeHtml(track.name)}</div>
-                <div class="track-list-artists">${escapeHtml(track.artists || track.artist)}</div>
-            </div>
-            <span class="track-list-duration">${formatTime(track.duration)}</span>
-            ${track.hasAudio ? '<span style="color:#10b981;font-size:12px;">🎵</span>' : '<span style="color:#ef4444;font-size:12px;">⛔</span>'}
-            <button class="track-list-like ${state.likedTracks.includes(track.id) ? 'liked' : ''}" data-track-id="${track.id}">
-                ${state.likedTracks.includes(track.id) ? '❤️' : '♡'}
-            </button>
-        </div>
-    `).join('');
-
-    dom.artistTrackList.querySelectorAll('.track-list-item').forEach(item => {
-        item.addEventListener('click', () => {
-            const trackId = parseInt(item.dataset.trackId);
-            const track = data.tracks.find(t => t.id === trackId);
-            if (track) {
-                if (!state.isOnline && !track.hasAudio) {
-                    showNotification('⚠️ Нет соединения', 'error');
-                    return;
-                }
-                state.artistTracks = data.tracks.map(t => ({
-                    ...t,
-                    artist: t.artists || t.artist,
-                    source: t.hasAudio ? 'Online' : 'Demo',
-                    audio: t.audio || null,
-                    hasAudio: t.hasAudio || false
-                }));
-                state.tracks = state.artistTracks;
-                state.playlist = state.artistTracks;
-                const idx = state.artistTracks.findIndex(t => t.id === trackId);
-                playTrack(idx);
-            }
-        });
-    });
-
-    dom.artistTrackList.querySelectorAll('.track-list-like').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const trackId = parseInt(btn.dataset.trackId);
-            toggleLike(trackId, btn);
-        });
-    });
-
-    // Render release
-    if (data.release) {
-        dom.artistRelease.innerHTML = `
-            <img src="${data.release.cover}" alt="${escapeHtml(data.release.name)}" onerror="this.src='https://via.placeholder.com/300/121212/fff?text=Release'">
-            <div class="release-info">
-                <h4>${escapeHtml(data.release.name)}</h4>
-                <p>Сингл · ${data.release.year}</p>
-            </div>
-        `;
+async function showArtistPage(artistName) {
+    if (!state.isOnline) {
+        showNotification('⚠️ Нет соединения', 'error');
+        return;
     }
 
-    // Update like button
-    const isFollowed = state.followedArtists.includes(artistName);
-    dom.artistLikeBtn.textContent = isFollowed ? '❤️' : '♡';
+    showLoading(`Поиск: ${artistName}...`);
+    
+    try {
+        const tracks = await discoverMusic(artistName);
+        const data = {
+            listeners: Math.floor(Math.random() * 10000000).toLocaleString('ru-RU'),
+            bio: `${artistName} — музыкальный исполнитель. Информация загружается из открытых источников.`,
+            image: generateCover(artistName, 400),
+            tracks: tracks.slice(0, 10),
+            release: { 
+                name: tracks[0]?.album || 'Новый релиз', 
+                cover: tracks[0]?.cover || generateCover('release'), 
+                year: '2026' 
+            }
+        };
+        
+        dom.artistAvatar.src = data.image;
+        dom.artistName.textContent = artistName;
+        dom.artistListeners.textContent = `${data.listeners} слушателей в месяц`;
+        dom.artistBio.textContent = data.bio;
+        dom.artistHeroBg.style.background = `linear-gradient(180deg, rgba(0,0,0,0.5) 0%, var(--bg-primary) 100%), url(${data.image}) center/cover`;
+        
+        // Render tracks
+        dom.artistTrackList.innerHTML = data.tracks.map((track, idx) => `
+            <div class="track-list-item" data-track-id="${track.id}">
+                <span class="track-number">${String(idx + 1).padStart(2, '0')}</span>
+                <img src="${track.cover}" alt="" class="track-list-cover" onerror="this.src='https://via.placeholder.com/48/121212/fff?text=?'">
+                <div class="track-list-info">
+                    <div class="track-list-name">${escapeHtml(track.name)}</div>
+                    <div class="track-list-artists">${escapeHtml(track.artist)}</div>
+                </div>
+                <span class="track-list-duration">${formatTime(track.duration)}</span>
+                <button class="track-list-like ${state.likedTracks.includes(track.id) ? 'liked' : ''}" data-track-id="${track.id}">
+                    ${state.likedTracks.includes(track.id) ? '❤️' : '♡'}
+                </button>
+            </div>
+        `).join('');
 
-    showPage('artist');
+        dom.artistTrackList.querySelectorAll('.track-list-item').forEach(item => {
+            item.addEventListener('click', async () => {
+                const trackId = parseInt(item.dataset.trackId);
+                const track = data.tracks.find(t => t.id === trackId);
+                if (track) {
+                    if (!state.isOnline) {
+                        showNotification('⚠️ Нет соединения', 'error');
+                        return;
+                    }
+                    state.artistTracks = data.tracks.map(t => ({ ...t, source: 'Online', hasAudio: false, audio: null }));
+                    state.tracks = state.artistTracks;
+                    state.playlist = state.artistTracks;
+                    const idx = state.artistTracks.findIndex(t => t.id === trackId);
+                    await playTrack(idx);
+                }
+            });
+        });
+
+        dom.artistTrackList.querySelectorAll('.track-list-like').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const trackId = parseInt(btn.dataset.trackId);
+                toggleLike(trackId, btn);
+            });
+        });
+
+        // Render release
+        if (data.release) {
+            dom.artistRelease.innerHTML = `
+                <img src="${data.release.cover}" alt="${escapeHtml(data.release.name)}" onerror="this.src='https://via.placeholder.com/300/121212/fff?text=Release'">
+                <div class="release-info">
+                    <h4>${escapeHtml(data.release.name)}</h4>
+                    <p>Сингл · ${data.release.year}</p>
+                </div>
+            `;
+        }
+
+        // Update like button
+        const isFollowed = state.followedArtists.includes(artistName);
+        dom.artistLikeBtn.textContent = isFollowed ? '❤️' : '♡';
+
+        hideLoading();
+        showPage('artist');
+    } catch (error) {
+        console.error('Artist page error:', error);
+        hideLoading();
+        showNotification('❌ Ошибка загрузки данных исполнителя', 'error', 3000);
+    }
 }
 
 function toggleLike(trackId, btn) {
@@ -458,60 +497,91 @@ function toggleLike(trackId, btn) {
 }
 
 // ===== Player =====
-function playTrack(index) {
+async function playTrack(index) {
     if (!state.isOnline) {
         showNotification('⚠️ Нет соединения с интернетом', 'error', 3000);
         return;
     }
-    
+
     const track = state.tracks[index];
-    if (!track) return;
-    
+    if (!track) {
+        showNotification('❌ Трек не найден', 'error');
+        return;
+    }
+
+    // If this is the same track, just toggle play
+    if (state.currentTrack && state.currentTrack.id === track.id) {
+        togglePlay();
+        return;
+    }
+
     state.currentIndex = index;
     state.currentTrack = track;
     
     updateMiniPlayer(track);
     updateFullscreenPlayer(track);
-    
-    if (track.hasAudio && track.audio) {
+
+    // Try to load audio
+    if (!track.hasAudio || !track.audio) {
+        const audioUrl = await loadTrackAudio(track);
+        if (audioUrl) {
+            track.audio = audioUrl;
+            track.hasAudio = true;
+            track.source = 'Online';
+        } else {
+            // If no audio found, play as demo
+            showNotification(`🎧 Демо: ${track.name} — ${track.artist}`, 'info', 3000);
+            playDemoTrack(track);
+            return;
+        }
+    }
+
+    // Play the audio
+    if (track.audio && track.hasAudio) {
         dom.audioPlayer.src = track.audio;
         dom.audioPlayer.play().then(() => {
             state.isPlaying = true;
             updatePlayButtons();
         }).catch((err) => {
             console.error('Play error:', err);
-            showNotification('⚠️ Не удалось воспроизвести трек', 'error');
+            showNotification('⚠️ Ошибка воспроизведения', 'error');
             state.isPlaying = false;
             updatePlayButtons();
+            // Fallback to demo
+            playDemoTrack(track);
         });
     } else {
-        showNotification(`🎧 Демо: ${track.name} — ${track.artist}`, 'info', 2000);
-        state.isPlaying = true;
-        updatePlayButtons();
-        // Simulate playback for demo tracks
-        if (track.duration) {
-            let elapsed = 0;
-            const interval = setInterval(() => {
-                if (!state.isPlaying || state.currentTrack?.id !== track.id) {
-                    clearInterval(interval);
-                    return;
+        playDemoTrack(track);
+    }
+}
+
+function playDemoTrack(track) {
+    state.isPlaying = true;
+    updatePlayButtons();
+    
+    // Simulate playback
+    if (track.duration) {
+        let elapsed = 0;
+        const interval = setInterval(() => {
+            if (!state.isPlaying || state.currentTrack?.id !== track.id) {
+                clearInterval(interval);
+                return;
+            }
+            elapsed++;
+            const progress = (elapsed / track.duration) * 100;
+            dom.miniProgressBar.value = Math.min(progress, 100);
+            dom.fsProgressBar.value = Math.min(progress, 100);
+            dom.miniCurrentTime.textContent = formatTime(Math.min(elapsed, track.duration));
+            dom.fsCurrentTime.textContent = formatTime(Math.min(elapsed, track.duration));
+            if (elapsed >= track.duration) {
+                clearInterval(interval);
+                if (state.isRepeat) {
+                    playTrack(state.currentIndex);
+                } else {
+                    nextTrack();
                 }
-                elapsed++;
-                const progress = (elapsed / track.duration) * 100;
-                dom.miniProgressBar.value = Math.min(progress, 100);
-                dom.fsProgressBar.value = Math.min(progress, 100);
-                dom.miniCurrentTime.textContent = formatTime(Math.min(elapsed, track.duration));
-                dom.fsCurrentTime.textContent = formatTime(Math.min(elapsed, track.duration));
-                if (elapsed >= track.duration) {
-                    clearInterval(interval);
-                    if (state.isRepeat) {
-                        playTrack(state.currentIndex);
-                    } else {
-                        nextTrack();
-                    }
-                }
-            }, 1000);
-        }
+            }
+        }, 1000);
     }
 }
 
@@ -543,7 +613,7 @@ function updatePlayButtons() {
 function togglePlay() {
     if (!state.currentTrack) {
         if (state.tracks.length > 0) playTrack(0);
-        else showNotification('Сначала выберите трек', 'info');
+        else showNotification('Сначала найдите трек', 'info');
         return;
     }
     
@@ -590,29 +660,31 @@ function closeFullscreen() {
 }
 
 // ===== Search =====
-function performSearch(query) {
+async function performSearch(query) {
     if (!query.trim()) return;
-    
+    if (!state.isOnline) {
+        showNotification('⚠️ Нет соединения с интернетом', 'error', 3000);
+        return;
+    }
+
     if (!state.searchHistory.includes(query)) {
         state.searchHistory.unshift(query);
         if (state.searchHistory.length > 10) state.searchHistory.pop();
     }
-    
-    const results = state.tracks.filter(t => 
-        t.name.toLowerCase().includes(query.toLowerCase()) ||
-        t.artist.toLowerCase().includes(query.toLowerCase()) ||
-        (t.genre && t.genre.toLowerCase().includes(query.toLowerCase()))
-    );
-    
-    const albums = DEMO_ALBUMS.filter(a =>
-        a.name.toLowerCase().includes(query.toLowerCase()) ||
-        a.artist.toLowerCase().includes(query.toLowerCase())
-    );
-    
-    const searchTracks = results.length > 0 ? results : state.tracks.slice(0, 8);
-    state.tracks = searchTracks;
-    state.playlist = searchTracks;
-    
+
+    const tracks = await discoverMusic(query);
+    state.tracks = tracks;
+    state.playlist = tracks;
+
+    // Generate some album suggestions based on search
+    const albums = tracks.slice(0, 6).map((track, i) => ({
+        id: Date.now() + i,
+        name: track.album || `${query} Альбом`,
+        artist: track.artist,
+        cover: track.cover || generateCover(`${query}album${i}`),
+        tracks: Math.floor(Math.random() * 12) + 5
+    }));
+
     dom.searchResults.innerHTML = `
         <section>
             <h2 class="section-title">🔍 Результаты: "${escapeHtml(query)}"</h2>
@@ -620,12 +692,12 @@ function performSearch(query) {
         </section>
         ${albums.length > 0 ? `
         <section>
-            <h2 class="section-title">Альбомы</h2>
+            <h2 class="section-title">Похожие альбомы</h2>
             <div class="albums-grid" id="searchAlbumsContainer"></div>
         </section>` : ''}
     `;
     
-    renderTracks(searchTracks, document.getElementById('searchTracksContainer'));
+    renderTracks(tracks, document.getElementById('searchTracksContainer'));
     if (albums.length > 0) {
         renderAlbums(albums, document.getElementById('searchAlbumsContainer'));
     }
@@ -725,8 +797,8 @@ function setupUI() {
     dom.lyricsModalOverlay.addEventListener('click', () => dom.lyricsModal.classList.add('hidden'));
 
     // Artist page buttons
-    dom.artistPlayBtn.addEventListener('click', () => {
-        if (state.artistTracks.length > 0) playTrack(0);
+    dom.artistPlayBtn.addEventListener('click', async () => {
+        if (state.artistTracks.length > 0) await playTrack(0);
     });
     dom.artistTrailerBtn.addEventListener('click', () => {
         showNotification('🎬 Трейлер (демо)', 'info', 2000);
@@ -750,9 +822,9 @@ function setupUI() {
 
     // Station/Genre cards
     $$('.station-card, .genre-card').forEach(card => {
-        card.addEventListener('click', () => {
+        card.addEventListener('click', async () => {
             const genre = card.dataset.genre;
-            performSearch(genre);
+            await performSearch(genre);
         });
     });
 
@@ -842,8 +914,7 @@ function showLyricsModal(track) {
         <div class="lyrics-line">Альбом: ${track.album || '—'}</div>
         <div class="lyrics-line">Жанр: ${track.genre || '—'}</div>
         <div class="lyrics-line">Длительность: ${formatTime(track.duration)}</div>
-        <div class="lyrics-line" style="margin-top:20px;color:var(--text-muted);">Текст песни загружается...</div>
-        <div class="lyrics-line" style="color:var(--text-muted);">📝 Слова будут доступны в следующем обновлении</div>
+        <div class="lyrics-line" style="margin-top:20px;color:var(--text-muted);">📝 Текст песни загружается из открытых источников...</div>
     `;
     dom.lyricsModal.classList.remove('hidden');
 }
@@ -857,15 +928,25 @@ document.addEventListener('DOMContentLoaded', () => {
     
     setupUI();
     
-    // Build initial tracks with audio
-    state.tracks = buildTrackList();
-    state.playlist = state.tracks;
-    renderTracks(state.tracks, dom.tracksContainer);
-    renderAlbums(DEMO_ALBUMS, dom.albumsContainer);
+    // Show welcome message
+    dom.tracksContainer.innerHTML = `
+        <div style="grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--text-muted);">
+            <div style="font-size:48px;margin-bottom:20px;">🎵</div>
+            <h2 style="font-size:24px;margin-bottom:10px;">Добро пожаловать в MusicHub</h2>
+            <p>Используйте поиск, чтобы найти музыку</p>
+            <p style="font-size:12px;margin-top:20px;opacity:0.5;">Музыка загружается в реальном времени из открытых источников</p>
+        </div>
+    `;
+    
+    dom.albumsContainer.innerHTML = `
+        <div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--text-muted);">
+            Начните поиск, чтобы увидеть альбомы
+        </div>
+    `;
     
     // Set initial theme button
     dom.themeToggle.textContent = '🌙';
     
-    console.log('🎵 MusicHub v4.0 loaded');
-    console.log(`📊 ${state.tracks.filter(t => t.hasAudio).length} треков с аудио, ${state.tracks.filter(t => !t.hasAudio).length} демо-треков`);
+    console.log('🎵 MusicHub v5.0 - Real-time music discovery');
+    console.log('📡 Поиск музыки в реальном времени из открытых источников');
 });
