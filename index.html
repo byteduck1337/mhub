@@ -3,111 +3,207 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MusicHub - Поиск музыки</title>
+    <title>MusicHub</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
-    <header>
-        <div class="header-content">
-            <div class="logo" id="logoLink">
-                <span class="logo-icon">🎵</span>
-                <span class="logo-text">Music<span class="highlight">Hub</span></span>
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="logo">
+            <span class="logo-icon">🎵</span>
+            <span class="logo-text">MusicHub</span>
+        </div>
+        
+        <nav class="main-nav">
+            <a href="#" class="nav-item active" data-page="home">
+                <span class="nav-icon">🏠</span> Главная
+            </a>
+            <a href="#" class="nav-item" data-page="search">
+                <span class="nav-icon">🔍</span> Поиск
+            </a>
+            <a href="#" class="nav-item" data-page="library">
+                <span class="nav-icon"></span> Медиатека
+            </a>
+            <a href="#" class="nav-item" data-page="radio">
+                <span class="nav-icon">📻</span> Радио
+            </a>
+        </nav>
+
+        <div class="playlists-section">
+            <h3>ПЛЕЙЛИСТЫ</h3>
+            <a href="#" class="playlist-item"><span class="p-icon">❤️</span> Избранное</a>
+            <a href="#" class="playlist-item"><span class="p-icon"></span> Недавние</a>
+            <a href="#" class="playlist-item"><span class="p-icon">✨</span> Рекомендации</a>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <div class="app-container">
+        <!-- Top Bar (Search) -->
+        <header class="top-bar">
+            <div class="search-box">
+                <span class="s-icon">🔍</span>
+                <input type="text" id="searchInput" placeholder="Поиск треков, исполнителей, альбомов...">
             </div>
-            <div class="search-container">
-                <div class="search-wrapper">
-                    <span class="search-icon"></span>
-                    <input type="text" id="searchInput" placeholder="Поиск треков, исполнителей, альбомов..." autocomplete="off">
-                    <button id="searchBtn">Найти</button>
+            <div class="user-profile">
+                <div class="avatar">👤</div>
+            </div>
+        </header>
+
+        <!-- Home Page View -->
+        <main id="homeView" class="view active">
+            <section class="featured-stations">
+                <h2>Избранные радиостанции</h2>
+                <div class="stations-grid">
+                    <div class="station-card pink" onclick="searchMusic('Легкий поп')">
+                        <span class="st-label">ИЗБРАННАЯ РАДИОСТАНЦИЯ</span>
+                        <h3>Легкий поп</h3>
+                        <p>Станция MusicHub</p>
+                    </div>
+                    <div class="station-card yellow" onclick="searchMusic('Хиты')">
+                        <span class="st-label">ИЗБРАННАЯ РАДИОСТАНЦИЯ</span>
+                        <h3>Хиты</h3>
+                        <p>Станция MusicHub</p>
+                    </div>
+                    <div class="station-card purple" onclick="searchMusic('Хип-хоп')">
+                        <span class="st-label">ИЗБРАННАЯ РАДИОСТАНЦИЯ</span>
+                        <h3>Хип-хоп</h3>
+                        <p>Станция MusicHub</p>
+                    </div>
                 </div>
-                <div class="search-history" id="searchHistory"></div>
+            </section>
+
+            <section class="genre-stations">
+                <h2>Станции по жанрам</h2>
+                <div class="genres-row">
+                    <div class="genre-card g-yellow" onclick="searchMusic('Рок')"></div>
+                    <div class="genre-card g-purple" onclick="searchMusic('Джаз')"></div>
+                    <div class="genre-card g-teal" onclick="searchMusic('Электроника')"></div>
+                    <div class="genre-card g-pink" onclick="searchMusic('Поп')"></div>
+                </div>
+            </section>
+
+            <section class="results-area">
+                <div class="section-header">
+                    <h2 id="resultsTitle">🔥 Популярное</h2>
+                    <span class="count-badge" id="resultsCount">0 треков</span>
+                </div>
+                <div class="tracks-grid" id="tracksContainer"></div>
+                
+                <div class="section-header" style="margin-top: 40px;">
+                    <h2>🎷 Альбомы</h2>
+                </div>
+                <div class="albums-grid" id="albumsContainer"></div>
             </div>
-            <div class="header-actions">
-                <button id="themeToggle" title="Сменить тему"></button>
+        </main>
+
+        <!-- Artist Page View -->
+        <div id="artistView" class="view hidden">
+            <div class="artist-hero">
+                <button class="back-btn" onclick="showHome()">← Назад</button>
+                <div class="artist-layout">
+                    <img src="" alt="Artist" class="artist-avatar" id="artAvatar">
+                    <div class="artist-details">
+                        <span class="artist-type">Исполнитель</span>
+                        <h1 class="artist-name" id="artName">—</h1>
+                        <div class="artist-stats" id="artStats">0 слушателей в месяц</div>
+                        <div class="artist-actions">
+                            <button class="btn-listen" id="artPlayBtn">▶ Слушать</button>
+                            <button class="btn-trailer">Трейлер</button>
+                            <button class="btn-icon-action" id="artLikeBtn">♡</button>
+                            <button class="btn-icon-action">↗</button>
+                            <button class="btn-icon-action"></button>
+                        </div>
+                    </div>
+                </div>
             </div>
-        </div>
-    </header>
-
-    <main>
-        <!-- Offline Error -->
-        <div id="offlineError" class="offline-error hidden">
-            <div class="offline-icon">😢</div>
-            <h1>Ошибка 666</h1>
-            <p>Адский сатана! Нет соединения с интернетом</p>
-            <button onclick="window.location.reload()" class="retry-btn"> Попробовать снова</button>
-        </div>
-
-        <!-- Results Section -->
-        <section id="resultsSection">
-            <div class="section-header">
-                <h2 id="resultsTitle">🔥 Популярное</h2>
-                <span class="results-count" id="resultsCount">0 треков</span>
+            
+            <div class="artist-content-split">
+                <div class="col-main">
+                    <h2 class="sec-title">Популярные треки</h2>
+                    <div class="track-list-v2" id="artTrackList"></div>
+                </div>
+                <div class="col-side">
+                    <h2 class="sec-title">Новый релиз</h2>
+                    <div class="release-card" id="artRelease"></div>
+                </div>
             </div>
-            <div class="tracks-grid" id="tracksContainer"></div>
-        </section>
-
-        <!-- Albums Section -->
-        <section id="albumsSection">
-            <div class="section-header">
-                <h2>🎷 Альбомы</h2>
-            </div>
-            <div class="albums-grid" id="albumsContainer"></div>
-        </section>
-
-        <!-- Artist Section (old) -->
-        <section id="artistSection" class="hidden"></section>
-    </main>
-
-    <!-- Artist Page V2 -->
-    <div id="artistPageV2" class="hidden"></div>
-
-    <!-- Single Page V2 -->
-    <div id="singlePageV2" class="hidden"></div>
-
-    <!-- Modal -->
-    <div class="modal hidden" id="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 id="modalTitle">Заголовок</h2>
-                <button class="modal-close" id="modalClose">✕</button>
-            </div>
-            <div class="modal-body" id="modalBody"></div>
         </div>
     </div>
 
-    <!-- Player -->
-    <div class="player">
-        <div class="player-left">
-            <img src="https://via.placeholder.com/60" alt="Cover" class="player-cover" id="playerCover">
-            <div class="player-track-info">
-                <div class="player-title" id="playerTitle">Выберите трек</div>
-                <div class="player-artist" id="playerArtist">Начните поиск</div>
+    <!-- Mini Player -->
+    <div class="mini-player">
+        <div class="mp-left" onclick="openFullscreen()">
+            <img src="https://via.placeholder.com/60" class="mp-cover" id="mpCover">
+            <div class="mp-info">
+                <div class="mp-title" id="mpTitle">Выберите трек</div>
+                <div class="mp-artist" id="mpArtist">Начните поиск</div>
             </div>
         </div>
-        <div class="player-center">
-            <div class="player-controls">
-                <button class="control-btn" id="prevBtn">⏮</button>
-                <button class="control-btn play-btn" id="playBtn">▶</button>
-                <button class="control-btn" id="nextBtn">⏭</button>
+        <div class="mp-center">
+            <div class="mp-controls">
+                <button class="ctrl-btn" id="prevBtn">⏮</button>
+                <button class="play-btn-lg" id="playBtn">▶</button>
+                <button class="ctrl-btn" id="nextBtn">⏭</button>
             </div>
-            <div class="player-progress">
-                <span class="time" id="currentTime">0:00</span>
-                <input type="range" id="progressBar" min="0" max="100" value="0">
-                <span class="time" id="totalTime">0:00</span>
+            <div class="mp-progress-wrap">
+                <span class="time-txt" id="curTime">0:00</span>
+                <input type="range" id="progBar" min="0" max="100" value="0">
+                <span class="time-txt" id="totTime">0:00</span>
             </div>
         </div>
-        <div class="player-right">
-            <button class="action-btn" id="downloadTrack" title="Скачать">⬇</button>
-            <button class="action-btn" id="downloadPlaylist" title="Скачать плейлист"></button>
-            <button class="action-btn" id="showLyrics" title="Текст">📝</button>
-            <button class="action-btn" id="shareTrack" title="Поделиться"></button>
-            <button class="action-btn" id="addToFavorites" title="В избранное">❤️</button>
+        <div class="mp-right">
+            <button class="act-btn" id="likeBtn">🤍</button>
+            <button class="act-btn" id="expandBtn">⛶</button>
         </div>
     </div>
 
-    <audio id="audioPlayer" preload="auto"></audio>
-    <div class="notification hidden" id="notification"></div>
+    <!-- Fullscreen Player Overlay -->
+    <div class="fs-player hidden" id="fsPlayer">
+        <div class="fs-bg" id="fsBg"></div>
+        <div class="fs-ui">
+            <button class="fs-close" onclick="closeFullscreen()">✕</button>
+            <div class="fs-art">
+                <img src="" id="fsImg">
+            </div>
+            <div class="fs-meta">
+                <h2 id="fsTitle">—</h2>
+                <p id="fsArtist">—</p>
+            </div>
+            <div class="fs-prog">
+                <input type="range" id="fsProg" min="0" max="100" value="0">
+                <div class="fs-times">
+                    <span id="fsCur">0:00</span>
+                    <span id="fsTot">0:00</span>
+                </div>
+            </div>
+            <div class="fs-ctrls">
+                <button class="fs-c">🔀</button>
+                <button class="fs-c" id="fsPrev">⏮</button>
+                <button class="fs-play" id="fsPlay">▶</button>
+                <button class="fs-c" id="fsNext">⏭</button>
+                <button class="fs-c"></button>
+            </div>
+        </div>
+    </div>
 
+    <!-- Modal for Lyrics -->
+    <div class="modal hidden" id="lyricsModal">
+        <div class="modal-overlay" onclick="closeModal()"></div>
+        <div class="modal-body">
+            <div class="modal-head">
+                <h2 id="lyrTitle">Текст песни</h2>
+                <button onclick="closeModal()">✕</button>
+            </div>
+            <div class="modal-content" id="lyrContent"></div>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div class="toast hidden" id="toast"></div>
+
+    <audio id="audio" preload="auto"></audio>
     <script src="script.js"></script>
 </body>
 </html>
