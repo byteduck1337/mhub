@@ -3,16 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MusicHub</title>
+    <title>MusicHub - Слушай и Скачивай</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
     <!-- Sidebar -->
     <aside class="sidebar">
-        <div class="logo">
+        <div class="logo" id="logoLink">
             <span class="logo-icon">🎵</span>
-            <span class="logo-text">MusicHub</span>
+            <span class="logo-text">Music<span class="highlight">Hub</span></span>
         </div>
         
         <nav class="main-nav">
@@ -45,6 +45,7 @@
             <div class="search-box">
                 <span class="s-icon">🔍</span>
                 <input type="text" id="searchInput" placeholder="Поиск треков, исполнителей, альбомов...">
+                <button id="searchBtn">Найти</button>
             </div>
             <div class="user-profile">
                 <div class="avatar">👤</div>
@@ -56,17 +57,17 @@
             <section class="featured-stations">
                 <h2>Избранные радиостанции</h2>
                 <div class="stations-grid">
-                    <div class="station-card pink" onclick="searchMusic('Легкий поп')">
+                    <div class="station-card pink" onclick="searchMusic('Pop')">
                         <span class="st-label">ИЗБРАННАЯ РАДИОСТАНЦИЯ</span>
                         <h3>Легкий поп</h3>
                         <p>Станция MusicHub</p>
                     </div>
-                    <div class="station-card yellow" onclick="searchMusic('Хиты')">
+                    <div class="station-card yellow" onclick="searchMusic('Hits')">
                         <span class="st-label">ИЗБРАННАЯ РАДИОСТАНЦИЯ</span>
                         <h3>Хиты</h3>
                         <p>Станция MusicHub</p>
                     </div>
-                    <div class="station-card purple" onclick="searchMusic('Хип-хоп')">
+                    <div class="station-card purple" onclick="searchMusic('Hip Hop')">
                         <span class="st-label">ИЗБРАННАЯ РАДИОСТАНЦИЯ</span>
                         <h3>Хип-хоп</h3>
                         <p>Станция MusicHub</p>
@@ -77,16 +78,16 @@
             <section class="genre-stations">
                 <h2>Станции по жанрам</h2>
                 <div class="genres-row">
-                    <div class="genre-card g-yellow" onclick="searchMusic('Рок')"></div>
-                    <div class="genre-card g-purple" onclick="searchMusic('Джаз')"></div>
-                    <div class="genre-card g-teal" onclick="searchMusic('Электроника')"></div>
-                    <div class="genre-card g-pink" onclick="searchMusic('Поп')"></div>
+                    <div class="genre-card g-yellow" onclick="searchMusic('Rock')"></div>
+                    <div class="genre-card g-purple" onclick="searchMusic('Jazz')"></div>
+                    <div class="genre-card g-teal" onclick="searchMusic('Electronic')"></div>
+                    <div class="genre-card g-pink" onclick="searchMusic('Indie')"></div>
                 </div>
             </section>
 
             <section class="results-area">
                 <div class="section-header">
-                    <h2 id="resultsTitle">🔥 Популярное</h2>
+                    <h2 id="resultsTitle"> Популярное</h2>
                     <span class="count-badge" id="resultsCount">0 треков</span>
                 </div>
                 <div class="tracks-grid" id="tracksContainer"></div>
@@ -95,7 +96,7 @@
                     <h2>🎷 Альбомы</h2>
                 </div>
                 <div class="albums-grid" id="albumsContainer"></div>
-            </div>
+            </section>
         </main>
 
         <!-- Artist Page View -->
@@ -107,9 +108,9 @@
                     <div class="artist-details">
                         <span class="artist-type">Исполнитель</span>
                         <h1 class="artist-name" id="artName">—</h1>
-                        <div class="artist-stats" id="artStats">0 слушателей в месяц</div>
+                        <div class="artist-stats" id="artStats">Загрузка...</div>
                         <div class="artist-actions">
-                            <button class="btn-listen" id="artPlayBtn">▶ Слушать</button>
+                            <button class="btn-listen" id="artPlayBtn">▶ Слушать всё</button>
                             <button class="btn-trailer">Трейлер</button>
                             <button class="btn-icon-action" id="artLikeBtn">♡</button>
                             <button class="btn-icon-action">↗</button>
@@ -143,7 +144,7 @@
         </div>
         <div class="mp-center">
             <div class="mp-controls">
-                <button class="ctrl-btn" id="prevBtn">⏮</button>
+                <button class="ctrl-btn" id="prevBtn"></button>
                 <button class="play-btn-lg" id="playBtn">▶</button>
                 <button class="ctrl-btn" id="nextBtn">⏭</button>
             </div>
@@ -185,18 +186,9 @@
                 <button class="fs-c" id="fsNext">⏭</button>
                 <button class="fs-c"></button>
             </div>
-        </div>
-    </div>
-
-    <!-- Modal for Lyrics -->
-    <div class="modal hidden" id="lyricsModal">
-        <div class="modal-overlay" onclick="closeModal()"></div>
-        <div class="modal-body">
-            <div class="modal-head">
-                <h2 id="lyrTitle">Текст песни</h2>
-                <button onclick="closeModal()">✕</button>
+            <div class="fs-actions-bottom">
+                 <button class="fs-action-btn" id="fsDownloadBtn"> Скачать MP3</button>
             </div>
-            <div class="modal-content" id="lyrContent"></div>
         </div>
     </div>
 
