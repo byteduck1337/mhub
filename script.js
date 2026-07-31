@@ -3,6 +3,10 @@
  * @version 2.3
  */
 
+// ============================================================
+// КОНСТАНТЫ И СОСТОЯНИЕ
+// ============================================================
+
 const ERROR_CODES = {
     SEARCH_FAILED: 'ERR_SEARCH_001',
     PLAYBACK_FAILED: 'ERR_PLAY_001',
@@ -36,6 +40,10 @@ const state = {
     volume: 0.8,
     isDownloading: false
 };
+
+// ============================================================
+// DOM ЭЛЕМЕНТЫ (объявляем сразу после state)
+// ============================================================
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => document.querySelectorAll(selector);
@@ -77,8 +85,13 @@ const dom = {
     themeToggle: $('#themeToggle')
 };
 
+// ============================================================
+// УТИЛИТЫ
+// ============================================================
+
 function showNotification(message, type = 'info', duration = 4000) {
     const el = dom.notification;
+    if (!el) return;
     el.textContent = message;
     el.className = `notification ${type}`;
     el.classList.remove('hidden');
@@ -110,6 +123,33 @@ function loadFromCache(key) {
     }
 }
 
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function formatTime(seconds) {
+    if (!seconds || isNaN(seconds)) return '0:00';
+    const min = Math.floor(seconds / 60);
+    const sec = Math.floor(seconds % 60);
+    return `${min}:${sec.toString().padStart(2, '0')}`;
+}
+
+function formatNumber(num) {
+    if (!num || isNaN(num)) return '0';
+    return num.toLocaleString('ru-RU');
+}
+
+function debounce(fn, delay = 300) {
+    let timeout;
+    return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => fn.apply(this, args), delay);
+    };
+}
+
 async function fetchWithTimeout(url, options = {}) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), API_CONFIG.TIMEOUT);
@@ -122,6 +162,10 @@ async function fetchWithTimeout(url, options = {}) {
         throw error;
     }
 }
+
+// ============================================================
+// API КЛИЕНТЫ
+// ============================================================
 
 const API = {
     itunes: {
@@ -235,6 +279,10 @@ const API = {
     }
 };
 
+// ============================================================
+// ДЕМО-ДАННЫЕ
+// ============================================================
+
 function getDemoTracks(query) {
     const DEMO_DB = [
         { name: 'Тёмный принц', artist: 'Алексей Воробьёв', album: 'Лучшее', genre: 'Pop' },
@@ -312,6 +360,10 @@ function getDemoAlbums(query) {
     }));
 }
 
+// ============================================================
+// ОСНОВНАЯ ЛОГИКА
+// ============================================================
+
 async function searchMusic(query) {
     if (!query.trim()) {
         showNotification('Введите запрос для поиска', 'info');
@@ -348,6 +400,7 @@ async function searchMusic(query) {
         }
 
         if (tracks.length === 0) {
+            // iTunes
             try {
                 const data = await API.itunes.search(query);
                 if (data.results && data.results.length > 0) {
@@ -386,6 +439,7 @@ async function searchMusic(query) {
                 }
             } catch (e) { console.debug('iTunes не сработал:', e); }
 
+            // SoundCloud
             if (tracks.length < API_CONFIG.MAX_TRACKS) {
                 try {
                     const data = await API.soundcloud.search(query);
@@ -411,6 +465,7 @@ async function searchMusic(query) {
                 } catch (e) { console.debug('SoundCloud не сработал:', e); }
             }
 
+            // Jamendo
             if (tracks.length < 10) {
                 try {
                     const data = await API.jamendo.search(query);
@@ -599,6 +654,10 @@ function updateSearchHistory() {
         });
     });
 }
+
+// ============================================================
+// СТРАНИЦА ИСПОЛНИТЕЛЯ V2
+// ============================================================
 
 async function showArtistV2(name, id) {
     const errorId = `${ERROR_CODES.ARTIST_NOT_FOUND}_${Date.now()}`;
@@ -836,6 +895,10 @@ function showArtistTrailer(name) {
     showNotification(`🎬 Трейлер исполнителя ${name} (демо-режим)`, 'info', 3000);
 }
 
+// ============================================================
+// СТРАНИЦА СИНГЛА V2
+// ============================================================
+
 function showSinglePage(trackId) {
     let track = state.tracks.find(t => t.id === trackId);
     if (!track && state.artistTracks) track = state.artistTracks.find(t => t.id === trackId);
@@ -925,6 +988,10 @@ function shareSingleTrack(trackId) {
         shareTrack();
     }
 }
+
+// ============================================================
+// ПОЛНОЭКРАННЫЙ ПЛЕЕР
+// ============================================================
 
 function openFullscreenPlayer() {
     const track = state.currentTrack;
@@ -1131,10 +1198,9 @@ function updateFullscreenPlayerInfo() {
     if (playBtn) playBtn.textContent = state.isPlaying ? '⏸' : '▶';
 }
 
-function formatNumber(num) {
-    if (!num || isNaN(num)) return '0';
-    return num.toLocaleString('ru-RU');
-}
+// ============================================================
+// ПЛЕЕР
+// ============================================================
 
 async function playTrack(index) {
     const track = state.tracks[index];
@@ -1200,6 +1266,10 @@ function updatePlayerInfo(track) {
     dom.playerCover.src = track.cover || 'https://via.placeholder.com/60';
     dom.playerCover.alt = track.name || 'Обложка';
 }
+
+// ============================================================
+// СКАЧИВАНИЕ
+// ============================================================
 
 async function downloadTrack(index) {
     const track = state.tracks[index];
@@ -1309,6 +1379,10 @@ function downloadPlaylist() {
     showNotification(`✅ Плейлист (${state.playlist.length} треков)`, 'success', 3000);
 }
 
+// ============================================================
+// ТЕКСТЫ ПЕСЕН
+// ============================================================
+
 async function showLyrics() {
     const track = state.currentTrack;
     if (!track) {
@@ -1402,31 +1476,6 @@ async function shareTrack() {
     }
 }
 
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-function formatTime(seconds) {
-    if (!seconds || isNaN(seconds)) return '0:00';
-    const min = Math.floor(seconds / 60);
-    const sec = Math.floor(seconds % 60);
-    return `${min}:${sec.toString().padStart(2, '0')}`;
-}
-
-function debounce(fn, delay = 300) {
-    let timeout;
-    return function(...args) {
-        clearTimeout(timeout);
-        timeout = setTimeout(() => fn.apply(this, args), delay);
-    };
-}
-
-// ============================================================
-// ОБРАБОТЧИКИ СОБЫТИЙ
-// ============================================================
 
 dom.playBtn.addEventListener('click', () => {
     const audio = dom.audio;
