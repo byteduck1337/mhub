@@ -167,7 +167,7 @@ export function renderTracks(tracks) {
         const hasAudio = track.audio || track.source === 'Demo' || track.source === 'SoundCloud';
         return `
             <div class="track-card" data-index="${index}" role="button" tabindex="0">
-                <img src="${track.cover}" alt="${track.name}" 
+                cover: item.artworkUrl100?.replace('100x100', '300x300') || 'https://picsum.photos/seed/' + (item.trackId || Math.random()) + '/300/300',
                      onerror="this.src='https://via.placeholder.com/300'" loading="lazy" />
                 <h3 title="${escapeHtml(track.name)}">${escapeHtml(track.name)}</h3>
                 <p title="${escapeHtml(track.artist)}">${escapeHtml(track.artist)}</p>
