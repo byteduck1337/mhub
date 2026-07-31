@@ -1481,11 +1481,11 @@ dom.playBtn.addEventListener('click', () => {
     const audio = dom.audio;
     if (!audio.src) {
         if (state.currentTrack) playTrack(state.currentIndex);
-        else showNotification('Сначала выберите трек', 'info');
+        else showNotification('Snachala vibrite trek', 'info');
         return;
     }
     if (audio.paused) {
-        audio.play().catch(() => showNotification('Ошибка воспроизведения', 'error'));
+        audio.play().catch(() => showNotification('Oshibka vosproizvedeniya', 'error'));
         dom.playBtn.textContent = '⏸';
         state.isPlaying = true;
     } else {
@@ -1542,7 +1542,7 @@ dom.audio.addEventListener('error', (e) => {
     console.error(`[${ERROR_CODES.PLAYBACK_FAILED}]`, e);
     dom.playBtn.textContent = '▶';
     state.isPlaying = false;
-    showNotification('⚠️ Ошибка воспроизведения', 'error', 4000);
+    showNotification('⚠️ Oshibka vosproizvedeniya', 'error', 4000);
 });
 
 dom.searchBtn.addEventListener('click', () => searchMusic(dom.searchInput.value));
@@ -1562,7 +1562,7 @@ dom.downloadTrack.addEventListener('click', () => {
         if (idx !== -1) downloadTrack(idx);
         else downloadTrack(state.currentIndex);
     } else {
-        showNotification('Сначала выберите трек', 'info');
+        showNotification('Snachala vibrite trek', 'info');
     }
 });
 dom.downloadPlaylist.addEventListener('click', downloadPlaylist);
@@ -1643,12 +1643,12 @@ document.addEventListener('keydown', (e) => {
 });
 
 // ============================================================
-// ИНИЦИАЛИЗАЦИЯ
+// INIT
 // ============================================================
 
 window.addEventListener('DOMContentLoaded', () => {
-    console.log('🎵 MusicHub v2.3 загружен');
-    console.log(`📊 Режим: ${navigator.onLine ? 'Online' : 'Offline'}`);
+    console.log('🎵 MusicHub v2.3 zagruzhen');
+    console.log(`📊 Rezhim: ${navigator.onLine ? 'Online' : 'Offline'}`);
     dom.audio.volume = state.volume;
     if (dom.volumeControl) dom.volumeControl.value = state.volume;
     const savedQuery = loadFromCache('last_search');
@@ -1656,16 +1656,16 @@ window.addEventListener('DOMContentLoaded', () => {
         dom.searchInput.value = savedQuery;
         searchMusic(savedQuery);
     } else {
-        searchMusic('популярное');
+        searchMusic('populyarnoe');
     }
 });
 
-window.addEventListener('online', () => showNotification('🌐 Сеть восстановлена', 'info', 3000));
-window.addEventListener('offline', () => showNotification('📡 Нет соединения, работаю офлайн', 'warning', 3000));
+window.addEventListener('online', () => showNotification('🌐 Set vosstanovlena', 'info', 3000));
+window.addEventListener('offline', () => showNotification('📡 Net soedineniya, rabotayu oflayn', 'warning', 3000));
 
 window.musicHub = { search: searchMusic, play: playTrack, state: state, API: API, download: downloadTrack };
 
-// Экспорт функций для onclick
+// Export functions for onclick
 window.showArtistV2 = showArtistV2;
 window.closeArtistPageV2 = closeArtistPageV2;
 window.playArtistTopTrack = playArtistTopTrack;
