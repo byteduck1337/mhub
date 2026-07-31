@@ -1,6 +1,6 @@
 ﻿import { state, dom, API_CONFIG } from './config.js';
 import { showNotification, loadFromCache, saveToCache, escapeHtml } from './utils.js';
-import { searchMusic, updateSearchHistory } from './search.js';
+import { searchMusic, updateSearchHistory, renderTracks } from './search.js';
 import { playTrack, togglePlay, prevTrack, nextTrack, setupAudioEvents, updatePlayerInfo } from './player.js';
 import { downloadTrack, downloadPlaylist } from './download.js';
 import { showArtistV2, closeArtistPageV2, playArtistTopTrack, playArtistTrack, toggleArtistFollow, isArtistFollowed, showArtistTrailer } from './artist.js';
@@ -12,6 +12,26 @@ export function setupUI() {
     dom.searchBtn.addEventListener('click', () => searchMusic(dom.searchInput.value));
     dom.searchInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') searchMusic(dom.searchInput.value);
+    });
+
+    // Search filters
+    const filterBtns = document.querySelectorAll('.filter-btn');
+    let currentFilter = 'all';
+    
+    filterBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            filterBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentFilter = btn.dataset.filter;
+            
+            // Re-render with filter
+            if (state.tracks && state.tracks.length > 0) {
+                const filteredTracks = currentFilter === 'all' 
+                    ? state.tracks 
+                    : state.tracks.filter(t => t.source.toLowerCase().includes(currentFilter.slice(0, -1)) || currentFilter === 'tracks');
+                renderTracks(filteredTracks);
+            }
+        });
     });
 
     // Back button
