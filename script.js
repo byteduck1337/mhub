@@ -1,4 +1,4 @@
-// ===== State & Config =====
+﻿// ===== State & Config =====
 const state = {
     tracks: [],
     currentIndex: 0,
