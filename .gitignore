@@ -1,5 +1,1 @@
-(js/app.js is a source file, not a build artifact or temporary file, so no ignores are needed)
-
-```javascript
-
-```
+(js/app.js is a source file, no build artifacts, dependencies, or temp files in the changes)
