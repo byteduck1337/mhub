@@ -1,11 +1,4 @@
-/**
- * MusicHub v2.3 - Расширенный музыкальный плеер с SoundCloud
- * @version 2.3
- */
-
-// ============================================================
-// КОНСТАНТЫ И СОСТОЯНИЕ
-// ============================================================
+// MusicHub v2.3
 
 const ERROR_CODES = {
     SEARCH_FAILED: 'ERR_SEARCH_001',
@@ -38,12 +31,9 @@ const state = {
     artistTracks: [],
     searchHistory: [],
     volume: 0.8,
-    isDownloading: false
+    isDownloading: false,
+    albums: []
 };
-
-// ============================================================
-// DOM ЭЛЕМЕНТЫ (объявляем сразу после state)
-// ============================================================
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => document.querySelectorAll(selector);
@@ -84,10 +74,6 @@ const dom = {
     notification: $('#notification'),
     themeToggle: $('#themeToggle')
 };
-
-// ============================================================
-// УТИЛИТЫ
-// ============================================================
 
 function showNotification(message, type = 'info', duration = 4000) {
     const el = dom.notification;
@@ -142,14 +128,6 @@ function formatNumber(num) {
     return num.toLocaleString('ru-RU');
 }
 
-function debounce(fn, delay = 300) {
-    let timeout;
-    return function(...args) {
-        clearTimeout(timeout);
-        timeout = setTimeout(() => fn.apply(this, args), delay);
-    };
-}
-
 async function fetchWithTimeout(url, options = {}) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), API_CONFIG.TIMEOUT);
@@ -162,10 +140,6 @@ async function fetchWithTimeout(url, options = {}) {
         throw error;
     }
 }
-
-// ============================================================
-// API КЛИЕНТЫ
-// ============================================================
 
 const API = {
     itunes: {
@@ -244,16 +218,7 @@ const API = {
                     }
                 } catch (e) { console.debug('SoundCloud proxy failed:', e); }
             }
-            throw new Error('SoundCloud API недоступен');
-        },
-        searchArtists: async (query) => {
-            const clientId = API_CONFIG.SOUNDCLOUD_CLIENT_ID;
-            const url = `https://corsproxy.io/?https://api.soundcloud.com/users?client_id=${clientId}&q=${encodeURIComponent(query)}&limit=20`;
-            try {
-                const response = await fetchWithTimeout(url);
-                if (response.ok) return response.json();
-            } catch (e) { console.debug('SoundCloud artists search failed:', e); }
-            return [];
+            throw new Error('SoundCloud API unavailable');
         },
         getTrack: async (trackId) => {
             const clientId = API_CONFIG.SOUNDCLOUD_CLIENT_ID;
@@ -279,15 +244,8 @@ const API = {
     }
 };
 
-// ============================================================
-// ДЕМО-ДАННЫЕ
-// ============================================================
-
 function getDemoTracks(query) {
     const DEMO_DB = [
-        { name: 'Тёмный принц', artist: 'Алексей Воробьёв', album: 'Лучшее', genre: 'Pop' },
-        { name: 'Принц и нищий', artist: 'Владимир Высоцкий', album: 'Концерт', genre: 'Folk' },
-        { name: 'Тёмная ночь', artist: 'Марк Бернес', album: 'Великие песни', genre: 'Classic' },
         { name: 'Purple Rain', artist: 'Prince', album: 'Purple Rain', genre: 'Rock' },
         { name: 'Bohemian Rhapsody', artist: 'Queen', album: 'A Night at the Opera', genre: 'Rock' },
         { name: 'Stairway to Heaven', artist: 'Led Zeppelin', album: 'Led Zeppelin IV', genre: 'Rock' },
@@ -320,7 +278,7 @@ function getDemoTracks(query) {
         name: d.name,
         artist: d.artist,
         artistId: i + 1,
-        album: d.album || 'Сборник',
+        album: d.album || 'Compilation',
         albumId: i + 1,
         cover: `https://picsum.photos/seed/${i+1}/300/300`,
         audio: null,
@@ -335,8 +293,6 @@ function getDemoTracks(query) {
 
 function getDemoAlbums(query) {
     const DEMO_ALBUMS = [
-        { name: 'Лучшие хиты', artist: 'Макс Корж' },
-        { name: 'Тёмная сторона', artist: 'Руки Вверх' },
         { name: 'Greatest Hits', artist: 'Queen' },
         { name: 'Thriller', artist: 'Michael Jackson' },
         { name: 'Back in Black', artist: 'AC/DC' },
@@ -360,17 +316,13 @@ function getDemoAlbums(query) {
     }));
 }
 
-// ============================================================
-// ОСНОВНАЯ ЛОГИКА
-// ============================================================
-
 async function searchMusic(query) {
     if (!query.trim()) {
-        showNotification('Введите запрос для поиска', 'info');
+        showNotification('Enter a search query', 'info');
         return;
     }
     const errorId = `${ERROR_CODES.SEARCH_FAILED}_${Date.now()}`;
-    console.log(`[${errorId}] Поиск: "${query}"`);
+    console.log(`[${errorId}] Search: "${query}"`);
 
     if (!state.searchHistory.includes(query)) {
         state.searchHistory.unshift(query);
@@ -381,7 +333,7 @@ async function searchMusic(query) {
     dom.tracksContainer.innerHTML = `
         <div class="loading-spinner">
             <div class="spinner"></div>
-            <p style="margin-top:10px;color:var(--text-muted);">Ищем треки...</p>
+            <p style="margin-top:10px;color:var(--text-muted);">Searching tracks...</p>
         </div>
     `;
     dom.albumsContainer.innerHTML = '';
@@ -396,11 +348,10 @@ async function searchMusic(query) {
         if (cached) {
             tracks = cached.tracks || [];
             albums = cached.albums || [];
-            showNotification('📦 Загружено из кэша', 'info', 2000);
+            showNotification('📦 Loaded from cache', 'info', 2000);
         }
 
         if (tracks.length === 0) {
-            // iTunes
             try {
                 const data = await API.itunes.search(query);
                 if (data.results && data.results.length > 0) {
@@ -408,10 +359,10 @@ async function searchMusic(query) {
                         .filter(item => item.kind === 'song')
                         .map(item => ({
                             id: item.trackId,
-                            name: item.trackName || 'Без названия',
-                            artist: item.artistName || 'Неизвестный',
+                            name: item.trackName || 'Untitled',
+                            artist: item.artistName || 'Unknown',
                             artistId: item.artistId,
-                            album: item.collectionName || 'Альбом',
+                            album: item.collectionName || 'Album',
                             albumId: item.collectionId,
                             cover: item.artworkUrl100 || 'https://via.placeholder.com/300',
                             audio: item.previewUrl,
@@ -426,8 +377,8 @@ async function searchMusic(query) {
                         if (item.collectionId && !albumsMap.has(item.collectionId)) {
                             albumsMap.set(item.collectionId, {
                                 id: item.collectionId,
-                                name: item.collectionName || 'Альбом',
-                                artist: item.artistName || 'Неизвестный',
+                                name: item.collectionName || 'Album',
+                                artist: item.artistName || 'Unknown',
                                 artistId: item.artistId,
                                 cover: item.artworkUrl100 || 'https://via.placeholder.com/300',
                                 tracks: item.trackCount || 0,
@@ -437,19 +388,18 @@ async function searchMusic(query) {
                     });
                     albums = Array.from(albumsMap.values());
                 }
-            } catch (e) { console.debug('iTunes не сработал:', e); }
+            } catch (e) { console.debug('iTunes failed:', e); }
 
-            // SoundCloud
             if (tracks.length < API_CONFIG.MAX_TRACKS) {
                 try {
                     const data = await API.soundcloud.search(query);
                     if (data.tracks && data.tracks.length > 0) {
                         const scTracks = data.tracks.map(item => ({
                             id: item.id || item.track_id,
-                            name: item.title || item.name || 'Без названия',
-                            artist: item.user?.username || item.artist || 'Неизвестный',
+                            name: item.title || item.name || 'Untitled',
+                            artist: item.user?.username || item.artist || 'Unknown',
                             artistId: item.user?.id || item.artist_id || 0,
-                            album: item.album?.title || item.album || 'Сингл',
+                            album: item.album?.title || item.album || 'Single',
                             albumId: item.album?.id || 0,
                             cover: item.artwork_url || item.artwork_url?.replace('large', 't500x500') || 'https://via.placeholder.com/300',
                             audio: item.stream_url || item.audio_url || item.media?.transcodings?.[0]?.url,
@@ -462,20 +412,19 @@ async function searchMusic(query) {
                         }));
                         tracks = tracks.concat(scTracks);
                     }
-                } catch (e) { console.debug('SoundCloud не сработал:', e); }
+                } catch (e) { console.debug('SoundCloud failed:', e); }
             }
 
-            // Jamendo
             if (tracks.length < 10) {
                 try {
                     const data = await API.jamendo.search(query);
                     if (data.results && data.results.length > 0) {
                         const jamendoTracks = data.results.map(item => ({
                             id: item.id,
-                            name: item.name || 'Без названия',
-                            artist: item.artist_name || 'Неизвестный',
+                            name: item.name || 'Untitled',
+                            artist: item.artist_name || 'Unknown',
                             artistId: item.artist_id,
-                            album: item.album_name || 'Альбом',
+                            album: item.album_name || 'Album',
                             albumId: item.album_id || 0,
                             cover: item.image || `https://picsum.photos/seed/${item.id}/300/300`,
                             audio: item.audio || item.url,
@@ -486,7 +435,7 @@ async function searchMusic(query) {
                         }));
                         tracks = tracks.concat(jamendoTracks);
                     }
-                } catch (e) { console.debug('Jamendo не сработал:', e); }
+                } catch (e) { console.debug('Jamendo failed:', e); }
             }
 
             if (tracks.length > 0) {
@@ -497,20 +446,21 @@ async function searchMusic(query) {
         if (tracks.length === 0) {
             tracks = getDemoTracks(query);
             albums = getDemoAlbums(query);
-            showNotification('🎵 Демо-режим (офлайн)', 'info', 3000);
+            showNotification('🎵 Demo mode (offline)', 'info', 3000);
         }
 
         state.tracks = tracks;
         state.playlist = tracks;
+        state.albums = albums;
         state.currentIndex = 0;
 
         renderTracks(tracks);
         renderAlbums(albums);
-        dom.resultsCount.textContent = `${tracks.length} треков`;
-        console.log(`[${errorId}] Найдено ${tracks.length} треков`);
+        dom.resultsCount.textContent = `${tracks.length} tracks`;
+        console.log(`[${errorId}] Found ${tracks.length} tracks`);
 
     } catch (error) {
-        console.error(`[${errorId}] Ошибка:`, error);
+        console.error(`[${errorId}] Error:`, error);
         const cacheKey = `search_${query.toLowerCase().trim()}`;
         const cached = loadFromCache(cacheKey);
         if (cached && cached.tracks && cached.tracks.length > 0) {
@@ -518,20 +468,20 @@ async function searchMusic(query) {
             state.playlist = cached.tracks;
             renderTracks(cached.tracks);
             renderAlbums(cached.albums || []);
-            dom.resultsCount.textContent = `${cached.tracks.length} треков (кэш)`;
-            showNotification('📦 Восстановлено из кэша', 'info', 3000);
+            dom.resultsCount.textContent = `${cached.tracks.length} tracks (cache)`;
+            showNotification('📦 Restored from cache', 'info', 3000);
             return;
         }
-        showNotification(`⚠️ Ошибка: ${error.message}`, 'error', 4000);
+        showNotification(`⚠️ Error: ${error.message}`, 'error', 4000);
         dom.tracksContainer.innerHTML = `
             <div style="grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--text-muted);">
                 <div style="font-size:48px;margin-bottom:16px;">⚠️</div>
-                <p style="font-size:18px;font-weight:600;color:#ef4444;">Ошибка загрузки</p>
-                <p style="font-size:12px;color:var(--text-muted);">Код: ${errorId}</p>
+                <p style="font-size:18px;font-weight:600;color:#ef4444;">Loading error</p>
+                <p style="font-size:12px;color:var(--text-muted);">Code: ${errorId}</p>
                 <p style="font-size:14px;margin-top:8px;">${error.message}</p>
-                <button onclick="searchMusic('популярное')" 
+                <button onclick="searchMusic('popular')" 
                         style="margin-top:20px;padding:10px 30px;background:var(--accent);border:none;border-radius:10px;color:#fff;cursor:pointer;">
-                    ↻ Попробовать снова
+                    ↻ Try again
                 </button>
             </div>
         `;
@@ -543,7 +493,7 @@ function renderTracks(tracks) {
         dom.tracksContainer.innerHTML = `
             <div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted);">
                 <div style="font-size:32px;margin-bottom:10px;">🎵</div>
-                <p>Ничего не найдено</p>
+                <p>Nothing found</p>
             </div>
         `;
         return;
@@ -562,10 +512,10 @@ function renderTracks(tracks) {
                                 `<span class="source-tag">${track.source || 'Unknown'}</span>`}
                 ${track.genre ? `<span class="source-tag" style="background:var(--accent);color:#fff;">${track.genre}</span>` : ''}
                 <div class="actions">
-                    <button class="btn-play" data-index="${index}">${hasAudio ? '▶' : '🎵'} ${hasAudio ? 'Слушать' : 'Демо'}</button>
+                    <button class="btn-play" data-index="${index}">▶</button>
                     <button class="btn-download" data-index="${index}" 
                             ${!hasDownload ? 'disabled style="opacity:0.4;cursor:not-allowed;"' : ''}>
-                        ⬇ ${hasDownload ? 'Скачать' : 'Недоступно'}
+                        ⬇
                     </button>
                     <button class="btn-artist" data-artist="${escapeHtml(track.artist)}" data-artistid="${track.artistId}">👤</button>
                 </div>
@@ -602,6 +552,12 @@ function renderTracks(tracks) {
             const track = state.tracks[index];
             if (track && (track.audio || track.isDemo)) playTrack(index);
         });
+        card.addEventListener('dblclick', () => {
+            const index = parseInt(card.dataset.index);
+            if (state.tracks[index]) {
+                showSinglePage(state.tracks[index].id);
+            }
+        });
         card.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
@@ -615,7 +571,7 @@ function renderAlbums(albums) {
     if (!albums || albums.length === 0) {
         dom.albumsContainer.innerHTML = `
             <div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--text-muted);">
-                Нет альбомов
+                No albums
             </div>
         `;
         return;
@@ -627,9 +583,10 @@ function renderAlbums(albums) {
                  onerror="this.src='https://via.placeholder.com/300'" loading="lazy" />
             <h3 title="${escapeHtml(album.name)}">${escapeHtml(album.name)}</h3>
             <p title="${escapeHtml(album.artist)}">${escapeHtml(album.artist)}</p>
-            <span style="font-size:12px;color:var(--text-muted);">${album.tracks} треков</span>
+            <span style="font-size:12px;color:var(--text-muted);">${album.tracks} tracks</span>
             <div class="actions" style="margin-top:10px;">
                 <button class="btn-artist-album" data-artist="${escapeHtml(album.artist)}" data-artistid="${album.artistId}">👤 ${escapeHtml(album.artist)}</button>
+                <button class="btn-album" data-albumid="${album.id}" style="flex:1;padding:8px 12px;border:none;border-radius:10px;font-weight:600;font-size:13px;cursor:pointer;transition:var(--transition);font-family:inherit;background:var(--accent);color:#fff;">💿</button>
             </div>
         </div>
     `).join('');
@@ -638,6 +595,19 @@ function renderAlbums(albums) {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
             showArtistV2(btn.dataset.artist, btn.dataset.artistid);
+        });
+    });
+
+    dom.albumsContainer.querySelectorAll('.btn-album').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            showAlbumPage(parseInt(btn.dataset.albumid));
+        });
+    });
+
+    dom.albumsContainer.querySelectorAll('.album-card').forEach(card => {
+        card.addEventListener('dblclick', () => {
+            showAlbumPage(parseInt(card.dataset.albumid));
         });
     });
 }
@@ -656,12 +626,12 @@ function updateSearchHistory() {
 }
 
 // ============================================================
-// СТРАНИЦА ИСПОЛНИТЕЛЯ V2
+// ARTIST PAGE
 // ============================================================
 
 async function showArtistV2(name, id) {
     const errorId = `${ERROR_CODES.ARTIST_NOT_FOUND}_${Date.now()}`;
-    console.log(`[${errorId}] Запрос исполнителя: ${name}`);
+    console.log(`[${errorId}] Artist request: ${name}`);
 
     let artistPage = document.getElementById('artistPageV2');
     if (!artistPage) {
@@ -679,12 +649,12 @@ async function showArtistV2(name, id) {
     artistPage.innerHTML = `
         <div class="artist-page-v2__loading">
             <div class="spinner"></div>
-            <p>Загрузка исполнителя...</p>
+            <p>Loading artist...</p>
         </div>
     `;
 
     try {
-        let bio = 'Информация об исполнителе не найдена';
+        let bio = 'No information available';
         let stats = { listeners: '?', plays: '?', similar: [] };
         let artistTracks = [];
         let topTracks = [];
@@ -701,7 +671,7 @@ async function showArtistV2(name, id) {
                 if (bio.length > 500) bio = bio.slice(0, 500) + '...';
                 if (data.artist.image) artistImage = data.artist.image[3]?.['#text'] || artistImage;
             }
-        } catch (e) { console.debug('Last.fm не сработал:', e); }
+        } catch (e) { console.debug('Last.fm failed:', e); }
 
         try {
             const data = await API.itunes.search(name);
@@ -711,10 +681,10 @@ async function showArtistV2(name, id) {
                     .slice(0, 30)
                     .map(item => ({
                         id: item.trackId,
-                        name: item.trackName || 'Без названия',
+                        name: item.trackName || 'Untitled',
                         artist: item.artistName || name,
                         artistId: item.artistId,
-                        album: item.collectionName || 'Альбом',
+                        album: item.collectionName || 'Album',
                         cover: item.artworkUrl100 || 'https://via.placeholder.com/300',
                         audio: item.previewUrl,
                         duration: item.trackTimeMillis ? Math.floor(item.trackTimeMillis / 1000) : 0,
@@ -732,10 +702,10 @@ async function showArtistV2(name, id) {
                 if (data.tracks && data.tracks.length > 0) {
                     const scTracks = data.tracks.slice(0, 15).map(item => ({
                         id: item.id || item.track_id,
-                        name: item.title || item.name || 'Без названия',
+                        name: item.title || item.name || 'Untitled',
                         artist: item.user?.username || item.artist || name,
                         artistId: item.user?.id || item.artist_id || 0,
-                        album: item.album?.title || item.album || 'Сингл',
+                        album: item.album?.title || item.album || 'Single',
                         cover: item.artwork_url || item.artwork_url?.replace('large', 't500x500') || 'https://via.placeholder.com/300',
                         audio: item.stream_url || item.audio_url,
                         duration: Math.floor((item.duration || 0) / 1000),
@@ -758,82 +728,96 @@ async function showArtistV2(name, id) {
         const listenersFormatted = formatNumber(parseInt(stats.listeners) || 0);
 
         artistPage.innerHTML = `
-            <div class="artist-page-v2__header">
-                <button class="artist-page-v2__back" onclick="closeArtistPageV2()">← Назад</button>
-                <div class="artist-page-v2__hero">
-                    <img src="${artistImage}" alt="${escapeHtml(name)}" class="artist-page-v2__avatar" />
-                    <div class="artist-page-v2__info">
-                        <div class="artist-page-v2__badge">Исполнитель</div>
-                        <h1 class="artist-page-v2__name">${escapeHtml(name)}</h1>
-                        <div class="artist-page-v2__stats">
-                            <span>⏱ ${listenersFormatted} слушателей в месяц</span>
-                            <span>🎵 ${artistTracks.length} треков</span>
+            <div style="margin-bottom:20px;">
+                <button onclick="closeArtistPageV2()" style="background:var(--bg-card);border:1px solid var(--border-color);color:var(--text-secondary);padding:8px 20px;border-radius:10px;cursor:pointer;font-family:inherit;font-size:14px;transition:var(--transition);">
+                    ← Back
+                </button>
+            </div>
+            <div class="artist-info-modern">
+                <div class="artist-header">
+                    <img src="${artistImage}" alt="${escapeHtml(name)}" class="artist-avatar" />
+                    <div>
+                        <div style="font-size:12px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:1px;">Artist</div>
+                        <h1 class="artist-name">${escapeHtml(name)}</h1>
+                        <div class="artist-stats">
+                            <span>📞 <strong>${listenersFormatted}</strong> listeners per month</span>
+                            <span>🎵 <strong>${artistTracks.length}</strong> tracks</span>
                         </div>
-                        <div class="artist-page-v2__actions">
-                            <button class="artist-page-v2__btn-primary" onclick="playArtistTopTrack()">▶ Слушать</button>
-                            <button class="artist-page-v2__btn-secondary" onclick="showArtistTrailer('${escapeHtml(name)}')">▶ Трейлер</button>
-                            <button class="artist-page-v2__btn-icon" onclick="toggleArtistFollow('${escapeHtml(name)}')">
+                        <div class="artist-actions">
+                            <button onclick="playArtistTopTrack()" style="padding:10px 28px;border:none;border-radius:50px;background:linear-gradient(135deg,var(--accent),#a855f7);color:#fff;font-weight:600;font-size:14px;cursor:pointer;transition:var(--transition);font-family:inherit;">
+                                ▶
+                            </button>
+                            <button onclick="showArtistTrailer('${escapeHtml(name)}')" style="padding:10px 28px;border:1px solid var(--border-color);border-radius:50px;background:var(--bg-primary);color:var(--text-secondary);font-weight:600;font-size:14px;cursor:pointer;transition:var(--transition);font-family:inherit;">
+                                ▶ Trailer
+                            </button>
+                            <button onclick="toggleArtistFollow('${escapeHtml(name)}')" style="width:42px;height:42px;border-radius:50%;border:1px solid var(--border-color);background:var(--bg-primary);color:var(--text-secondary);font-size:20px;cursor:pointer;transition:var(--transition);display:flex;align-items:center;justify-content:center;">
                                 ${isArtistFollowed(name) ? '❤️' : '♡'}
                             </button>
                         </div>
                     </div>
                 </div>
-            </div>
-            <div class="artist-page-v2__content">
-                <div class="artist-page-v2__section">
-                    <h2 class="artist-page-v2__section-title">Популярные треки</h2>
-                    <div class="artist-page-v2__track-list">
-                        ${topTracks.map((track, idx) => `
-                            <div class="artist-page-v2__track-item" onclick="playArtistTrack(${idx})">
-                                <span class="artist-page-v2__track-number">${String(idx + 1).padStart(2, '0')}</span>
-                                <div class="artist-page-v2__track-info">
-                                    <div class="artist-page-v2__track-name">${track.isExplicit ? '🔞 ' : ''}${escapeHtml(track.name)}</div>
-                                    <div class="artist-page-v2__track-artist">${escapeHtml(track.artist)} ${track.album ? `· ${escapeHtml(track.album)}` : ''}</div>
-                                </div>
-                                <div class="artist-page-v2__track-meta">
-                                    <span class="artist-page-v2__track-duration">${formatTime(track.duration)}</span>
-                                    <button class="artist-page-v2__track-play" onclick="event.stopPropagation(); playArtistTrack(${idx})">▶</button>
-                                </div>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-                <div class="artist-page-v2__section">
-                    <h2 class="artist-page-v2__section-title">Все треки</h2>
-                    <div class="artist-page-v2__track-list">
-                        ${artistTracks.map((track, idx) => `
-                            <div class="artist-page-v2__track-item" onclick="playArtistTrack(${idx})">
-                                <span class="artist-page-v2__track-number">${String(idx + 1).padStart(2, '0')}</span>
-                                <div class="artist-page-v2__track-info">
-                                    <div class="artist-page-v2__track-name">${track.isExplicit ? '🔞 ' : ''}${escapeHtml(track.name)}</div>
-                                    <div class="artist-page-v2__track-artist">${escapeHtml(track.artist)} ${track.album ? `· ${escapeHtml(track.album)}` : ''}</div>
-                                </div>
-                                <div class="artist-page-v2__track-meta">
-                                    <span class="artist-page-v2__track-duration">${formatTime(track.duration)}</span>
-                                    <span class="artist-page-v2__track-source">${track.source || 'Unknown'}</span>
-                                    <button class="artist-page-v2__track-play" onclick="event.stopPropagation(); playArtistTrack(${idx})">▶</button>
-                                </div>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
+                ${bio ? `<div class="artist-bio">${escapeHtml(bio)}</div>` : ''}
                 ${stats.similar.length > 0 ? `
-                <div class="artist-page-v2__section">
-                    <h2 class="artist-page-v2__section-title">Похожие исполнители</h2>
-                    <div class="artist-page-v2__similar">
+                    <div class="artist-similar">
                         ${stats.similar.slice(0, 8).map(s => `
-                            <div class="artist-page-v2__similar-item" onclick="showArtistV2('${escapeHtml(s)}', 0)">
-                                <div class="artist-page-v2__similar-avatar">${s.charAt(0)}</div>
-                                <span class="artist-page-v2__similar-name">${escapeHtml(s)}</span>
-                            </div>
+                            <span class="similar-tag" onclick="showArtistV2('${escapeHtml(s)}', 0)">${escapeHtml(s)}</span>
                         `).join('')}
                     </div>
-                </div>
                 ` : ''}
-                <div class="artist-page-v2__section">
-                    <h2 class="artist-page-v2__section-title">О исполнителе</h2>
-                    <div class="artist-page-v2__bio">${escapeHtml(bio)}</div>
+            </div>
+
+            <div style="background:var(--bg-card);border-radius:var(--radius);padding:24px;border:1px solid var(--border-color);margin-bottom:20px;">
+                <h2 style="font-size:20px;font-weight:700;margin:0 0 16px 0;">🎵 Popular Tracks</h2>
+                <div style="display:flex;flex-direction:column;gap:4px;">
+                    ${topTracks.map((track, idx) => `
+                        <div onclick="playArtistTrack(${idx})" style="display:flex;align-items:center;gap:16px;padding:10px 14px;border-radius:10px;cursor:pointer;transition:var(--transition);">
+                            <span style="font-size:14px;color:var(--text-muted);min-width:32px;font-weight:600;">${String(idx + 1).padStart(2, '0')}</span>
+                            <div style="flex:1;min-width:0;">
+                                <div style="font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${track.isExplicit ? '🔞 ' : ''}${escapeHtml(track.name)}</div>
+                                <div style="font-size:13px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(track.artist)} ${track.album ? `· ${escapeHtml(track.album)}` : ''}</div>
+                            </div>
+                            <div style="display:flex;align-items:center;gap:12px;flex-shrink:0;">
+                                <span style="font-size:13px;color:var(--text-muted);">${formatTime(track.duration)}</span>
+                                <button onclick="event.stopPropagation(); playArtistTrack(${idx})" style="width:32px;height:32px;border-radius:50%;border:none;background:var(--accent);color:#fff;cursor:pointer;transition:var(--transition);font-size:14px;">▶</button>
+                            </div>
+                        </div>
+                    `).join('')}
                 </div>
+            </div>
+
+            <div style="background:var(--bg-card);border-radius:var(--radius);padding:24px;border:1px solid var(--border-color);margin-bottom:20px;">
+                <h2 style="font-size:20px;font-weight:700;margin:0 0 16px 0;">🎶 All Tracks</h2>
+                <div style="display:flex;flex-direction:column;gap:4px;">
+                    ${artistTracks.map((track, idx) => `
+                        <div onclick="playArtistTrack(${idx})" style="display:flex;align-items:center;gap:16px;padding:8px 14px;border-radius:10px;cursor:pointer;transition:var(--transition);">
+                            <span style="font-size:14px;color:var(--text-muted);min-width:32px;font-weight:600;">${String(idx + 1).padStart(2, '0')}</span>
+                            <div style="flex:1;min-width:0;">
+                                <div style="font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${track.isExplicit ? '🔞 ' : ''}${escapeHtml(track.name)}</div>
+                                <div style="font-size:13px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(track.artist)} ${track.album ? `· ${escapeHtml(track.album)}` : ''}</div>
+                            </div>
+                            <div style="display:flex;align-items:center;gap:12px;flex-shrink:0;">
+                                <span style="font-size:13px;color:var(--text-muted);">${formatTime(track.duration)}</span>
+                                <span style="font-size:10px;padding:2px 8px;border-radius:50px;background:var(--bg-primary);color:var(--text-muted);">${track.source || 'Unknown'}</span>
+                                <button onclick="event.stopPropagation(); playArtistTrack(${idx})" style="width:32px;height:32px;border-radius:50%;border:none;background:var(--accent);color:#fff;cursor:pointer;transition:var(--transition);font-size:14px;">▶</button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+
+            <div style="background:var(--bg-card);border-radius:var(--radius);padding:24px;border:1px solid var(--border-color);">
+                <h2 style="font-size:20px;font-weight:700;margin:0 0 16px 0;">📀 Latest Release</h2>
+                ${artistTracks.length > 0 ? `
+                    <div style="display:flex;align-items:center;gap:16px;padding:12px 16px;background:var(--bg-primary);border-radius:10px;border:1px solid var(--border-color);">
+                        <img src="${artistTracks[0].cover}" alt="${escapeHtml(artistTracks[0].name)}" style="width:60px;height:60px;border-radius:8px;object-fit:cover;" />
+                        <div style="flex:1;">
+                            <div style="font-weight:700;font-size:16px;">${escapeHtml(artistTracks[0].name)}</div>
+                            <div style="font-size:14px;color:var(--text-secondary);">${escapeHtml(artistTracks[0].artist)}</div>
+                            <div style="font-size:12px;color:var(--text-muted);">${formatTime(artistTracks[0].duration)} · ${artistTracks[0].source || 'Unknown'}</div>
+                        </div>
+                        <button onclick="playArtistTrack(0)" style="width:40px;height:40px;border-radius:50%;border:none;background:var(--accent);color:#fff;cursor:pointer;transition:var(--transition);font-size:18px;">▶</button>
+                    </div>
+                ` : '<p style="color:var(--text-muted);">No releases yet</p>'}
             </div>
         `;
 
@@ -843,12 +827,12 @@ async function showArtistV2(name, id) {
         state.currentIndex = 0;
 
     } catch (error) {
-        console.error(`[${errorId}] Ошибка:`, error);
+        console.error(`[${errorId}] Error:`, error);
         artistPage.innerHTML = `
-            <div class="artist-page-v2__error">
-                <div style="font-size:48px;margin-bottom:16px;">⚠️</div>
-                <p>Не удалось загрузить информацию об исполнителе</p>
-                <button onclick="closeArtistPageV2()" class="artist-page-v2__btn-primary">← Назад</button>
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;gap:20px;text-align:center;">
+                <div style="font-size:48px;">⚠️</div>
+                <p style="color:var(--text-secondary);">Could not load artist information</p>
+                <button onclick="closeArtistPageV2()" style="padding:10px 30px;border:none;border-radius:50px;background:linear-gradient(135deg,var(--accent),#a855f7);color:#fff;font-weight:600;font-size:14px;cursor:pointer;font-family:inherit;">← Back</button>
             </div>
         `;
     }
@@ -883,27 +867,135 @@ function toggleArtistFollow(name) {
     let followed = JSON.parse(localStorage.getItem('musichub_followed') || '[]');
     if (followed.includes(name)) {
         followed = followed.filter(f => f !== name);
-        showNotification('Отписка от исполнителя', 'info', 2000);
+        showNotification('Unfollowed artist', 'info', 2000);
     } else {
         followed.push(name);
-        showNotification(`❤️ Вы подписались на ${name}`, 'success', 2000);
+        showNotification(`❤️ Followed ${name}`, 'success', 2000);
     }
     localStorage.setItem('musichub_followed', JSON.stringify(followed));
 }
 
 function showArtistTrailer(name) {
-    showNotification(`🎬 Трейлер исполнителя ${name} (демо-режим)`, 'info', 3000);
+    showNotification(`🎬 Trailer for ${name} (demo mode)`, 'info', 3000);
 }
 
 // ============================================================
-// СТРАНИЦА СИНГЛА V2
+// ALBUM PAGE
+// ============================================================
+
+function showAlbumPage(albumId) {
+    let album = null;
+    let tracks = [];
+
+    if (state.albums) {
+        album = state.albums.find(a => a.id === albumId);
+    }
+
+    if (!album) {
+        tracks = state.tracks.filter(t => t.albumId === albumId);
+        if (tracks.length > 0) {
+            album = {
+                id: albumId,
+                name: tracks[0].album || 'Album',
+                artist: tracks[0].artist || 'Unknown Artist',
+                cover: tracks[0].cover || 'https://via.placeholder.com/300',
+                tracks: tracks.length
+            };
+        }
+    }
+
+    if (!album) {
+        showNotification('Album not found', 'error');
+        return;
+    }
+
+    let singlePage = document.getElementById('singlePageV2');
+    if (!singlePage) {
+        singlePage = document.createElement('div');
+        singlePage.id = 'singlePageV2';
+        singlePage.className = 'single-page-v2';
+        document.querySelector('main').appendChild(singlePage);
+    }
+
+    singlePage.classList.remove('hidden');
+    document.querySelectorAll('#resultsSection, #albumsSection, #artistSection, #artistPageV2').forEach(el => {
+        if (el) el.classList.add('hidden');
+    });
+
+    const artistName = album.artist || 'Unknown Artist';
+    const trackList = state.tracks.filter(t => t.albumId === albumId).slice(0, 20);
+
+    singlePage.innerHTML = `
+        <div style="margin-bottom:20px;">
+            <button onclick="closeSinglePageV2()" style="background:var(--bg-card);border:1px solid var(--border-color);color:var(--text-secondary);padding:8px 20px;border-radius:10px;cursor:pointer;font-family:inherit;font-size:14px;transition:var(--transition);">
+                ← Back
+            </button>
+        </div>
+        <div class="single-page-v2__hero">
+            <img src="${album.cover}" alt="${escapeHtml(album.name)}" class="single-page-v2__cover" />
+            <div class="single-page-v2__info">
+                <div class="single-page-v2__badge">Album</div>
+                <h1 class="single-page-v2__title">${escapeHtml(album.name)}</h1>
+                <p class="single-page-v2__artists">${escapeHtml(artistName)}</p>
+                <p class="single-page-v2__year">${album.releaseYear || '2026'} · ${trackList.length} tracks</p>
+                <div class="single-page-v2__actions">
+                    <button class="single-page-v2__btn-primary" onclick="playAlbumTracks()">▶</button>
+                    <button class="single-page-v2__btn-icon" onclick="shareAlbum()">📤</button>
+                </div>
+                <div class="single-page-v2__tracklist">
+                    ${trackList.map((t, i) => `
+                        <div class="single-page-v2__tracklist-item" onclick="playTrackFromAlbum(${i})">
+                            <span class="single-page-v2__tracklist-number">${String(i + 1).padStart(2, '0')}</span>
+                            <span class="single-page-v2__tracklist-name">${escapeHtml(t.name)}</span>
+                            <span class="single-page-v2__tracklist-duration">${formatTime(t.duration)}</span>
+                        </div>
+                    `).join('')}
+                </div>
+                <div class="single-page-v2__label">Label: ${album.label || 'Independent'}</div>
+            </div>
+        </div>
+    `;
+
+    state._albumTracks = trackList;
+}
+
+function closeSinglePageV2() {
+    const singlePage = document.getElementById('singlePageV2');
+    if (singlePage) singlePage.classList.add('hidden');
+    document.querySelectorAll('#resultsSection, #albumsSection').forEach(el => {
+        if (el) el.classList.remove('hidden');
+    });
+}
+
+function playAlbumTracks() {
+    if (state._albumTracks && state._albumTracks.length > 0) {
+        state.tracks = state._albumTracks;
+        state.playlist = state._albumTracks;
+        playTrack(0);
+    }
+}
+
+function playTrackFromAlbum(index) {
+    if (state._albumTracks && state._albumTracks[index]) {
+        state.tracks = state._albumTracks;
+        state.playlist = state._albumTracks;
+        playTrack(index);
+    }
+}
+
+function shareAlbum() {
+    showNotification('📤 Share feature coming soon', 'info', 2000);
+}
+
+// ============================================================
+// SINGLE PAGE (track detail)
 // ============================================================
 
 function showSinglePage(trackId) {
     let track = state.tracks.find(t => t.id === trackId);
     if (!track && state.artistTracks) track = state.artistTracks.find(t => t.id === trackId);
     if (!track) {
-        showNotification('Трек не найден', 'error');
+        showNotification('Track not found', 'error');
         return;
     }
 
@@ -922,22 +1014,24 @@ function showSinglePage(trackId) {
 
     const year = track.releaseDate ? new Date(track.releaseDate).getFullYear() : '2026';
     const artists = track.artist.split(',').map(a => a.trim());
-    const artistsDisplay = artists.length > 1 ? artists.slice(0, 3).join(', ') + (artists.length > 3 ? ` и ещё ${artists.length - 3} исполнителя` : '') : track.artist;
+    const artistsDisplay = artists.length > 1 ? artists.slice(0, 3).join(', ') + (artists.length > 3 ? ` and ${artists.length - 3} more` : '') : track.artist;
 
     singlePage.innerHTML = `
-        <div class="single-page-v2__header">
-            <button class="single-page-v2__back" onclick="closeSinglePageV2()">← Назад</button>
+        <div style="margin-bottom:20px;">
+            <button onclick="closeSinglePageV2()" style="background:var(--bg-card);border:1px solid var(--border-color);color:var(--text-secondary);padding:8px 20px;border-radius:10px;cursor:pointer;font-family:inherit;font-size:14px;transition:var(--transition);">
+                ← Back
+            </button>
         </div>
         <div class="single-page-v2__hero">
             <img src="${track.cover}" alt="${escapeHtml(track.name)}" class="single-page-v2__cover" />
             <div class="single-page-v2__info">
-                <div class="single-page-v2__badge">Сингл</div>
+                <div class="single-page-v2__badge">Single</div>
                 <h1 class="single-page-v2__title">${escapeHtml(track.name)}</h1>
                 <p class="single-page-v2__artists">${escapeHtml(artistsDisplay)}</p>
                 <p class="single-page-v2__year">${year}</p>
                 <div class="single-page-v2__actions">
-                    <button class="single-page-v2__btn-primary" onclick="playSingleTrack(${track.id})">▶ Слушать</button>
-                    <button class="single-page-v2__btn-secondary" onclick="downloadSingleTrack(${track.id})">⬇ Скачать</button>
+                    <button class="single-page-v2__btn-primary" onclick="playSingleTrack(${track.id})">▶</button>
+                    <button class="single-page-v2__btn-secondary" onclick="downloadSingleTrack(${track.id})">⬇</button>
                     <button class="single-page-v2__btn-icon" onclick="shareSingleTrack(${track.id})">📤</button>
                     <span class="single-page-v2__plays">${Math.floor(Math.random() * 50000 + 1000).toLocaleString()}</span>
                 </div>
@@ -948,21 +1042,13 @@ function showSinglePage(trackId) {
                         <span class="single-page-v2__tracklist-duration">${formatTime(track.duration)}</span>
                     </div>
                 </div>
-                <div class="single-page-v2__label">Лейбл: ${track.label || '@58 Records'}</div>
-                <div class="single-page-v2__meta">Новые способы в этом выпуске</div>
+                <div class="single-page-v2__label">Label: ${track.label || 'Independent'}</div>
+                <div class="single-page-v2__meta">${track.source || 'Unknown'} · ${track.genre || 'Various'}</div>
             </div>
         </div>
     `;
 
     state.currentTrack = track;
-}
-
-function closeSinglePageV2() {
-    const singlePage = document.getElementById('singlePageV2');
-    if (singlePage) singlePage.classList.add('hidden');
-    document.querySelectorAll('#resultsSection, #albumsSection').forEach(el => {
-        if (el) el.classList.remove('hidden');
-    });
 }
 
 function playSingleTrack(trackId) {
@@ -990,13 +1076,13 @@ function shareSingleTrack(trackId) {
 }
 
 // ============================================================
-// ПОЛНОЭКРАННЫЙ ПЛЕЕР
+// FULLSCREEN PLAYER
 // ============================================================
 
 function openFullscreenPlayer() {
     const track = state.currentTrack;
     if (!track) {
-        showNotification('Сначала выберите трек', 'info');
+        showNotification('Select a track first', 'info');
         return;
     }
 
@@ -1010,7 +1096,7 @@ function openFullscreenPlayer() {
 
     fullscreenPlayer.classList.remove('hidden');
 
-    let lyricsHtml = '<p style="color:var(--text-muted);text-align:center;">Загрузка текста...</p>';
+    let lyricsHtml = '<p style="color:var(--text-muted);text-align:center;">Loading lyrics...</p>';
     const lyricsCache = loadFromCache(`lyrics_${track.id}`);
     if (lyricsCache) {
         lyricsHtml = lyricsCache.split('\n').map(line => 
@@ -1112,13 +1198,13 @@ function fullscreenNext() {
 function toggleFullscreenShuffle() {
     const btn = document.getElementById('fsShuffle');
     if (btn) btn.style.color = btn.style.color === 'var(--accent)' ? 'var(--text-secondary)' : 'var(--accent)';
-    showNotification('🔀 Перемешивание ' + (btn?.style.color === 'var(--accent)' ? 'включено' : 'выключено'), 'info', 2000);
+    showNotification('🔀 Shuffle ' + (btn?.style.color === 'var(--accent)' ? 'on' : 'off'), 'info', 2000);
 }
 
 function toggleFullscreenRepeat() {
     const btn = document.getElementById('fsRepeat');
     if (btn) btn.style.color = btn.style.color === 'var(--accent)' ? 'var(--text-secondary)' : 'var(--accent)';
-    showNotification('🔁 Повтор ' + (btn?.style.color === 'var(--accent)' ? 'включён' : 'выключен'), 'info', 2000);
+    showNotification('🔁 Repeat ' + (btn?.style.color === 'var(--accent)' ? 'on' : 'off'), 'info', 2000);
 }
 
 function isTrackLiked(trackId) {
@@ -1132,11 +1218,11 @@ function toggleFullscreenLike(trackId) {
     if (liked.includes(trackId)) {
         liked = liked.filter(id => id !== trackId);
         if (btn) btn.textContent = '🤍';
-        showNotification('Лайк убран', 'info', 1500);
+        showNotification('Like removed', 'info', 1500);
     } else {
         liked.push(trackId);
         if (btn) btn.textContent = '❤️';
-        showNotification('❤️ Добавлено в любимое', 'success', 1500);
+        showNotification('❤️ Added to favorites', 'success', 1500);
     }
     localStorage.setItem('musichub_liked', JSON.stringify(liked));
 }
@@ -1161,11 +1247,11 @@ function fullscreenLyrics() {
         } else {
             lyricsContainer.style.maxHeight = '300px';
             lyricsContainer.style.opacity = '1';
-            if (lyricsContainer.innerHTML.includes('Загрузка текста')) {
+            if (lyricsContainer.innerHTML.includes('Loading lyrics')) {
                 showLyrics();
                 setTimeout(() => {
                     const newLyrics = document.getElementById('modalBody');
-                    if (newLyrics && !newLyrics.innerHTML.includes('Загрузка')) {
+                    if (newLyrics && !newLyrics.innerHTML.includes('Loading')) {
                         lyricsContainer.innerHTML = newLyrics.innerHTML;
                     }
                 }, 2000);
@@ -1178,9 +1264,9 @@ function fullscreenAddToPlaylist() {
     if (state.currentTrack) {
         if (!state.playlist.includes(state.currentTrack)) {
             state.playlist.push(state.currentTrack);
-            showNotification('➕ Добавлено в плейлист', 'success', 2000);
+            showNotification('➕ Added to playlist', 'success', 2000);
         } else {
-            showNotification('Уже в плейлисте', 'info', 2000);
+            showNotification('Already in playlist', 'info', 2000);
         }
     }
 }
@@ -1192,20 +1278,20 @@ function updateFullscreenPlayerInfo() {
     const artist = document.querySelector('.fullscreen-player__artist');
     const artwork = document.querySelector('.fullscreen-player__artwork img');
     const playBtn = document.getElementById('fsPlayBtn');
-    if (title) title.textContent = track.name || 'Без названия';
-    if (artist) artist.textContent = track.artist || 'Неизвестный';
+    if (title) title.textContent = track.name || 'Untitled';
+    if (artist) artist.textContent = track.artist || 'Unknown';
     if (artwork) artwork.src = track.cover || 'https://via.placeholder.com/300';
     if (playBtn) playBtn.textContent = state.isPlaying ? '⏸' : '▶';
 }
 
 // ============================================================
-// ПЛЕЕР
+// PLAYER
 // ============================================================
 
 async function playTrack(index) {
     const track = state.tracks[index];
     if (!track) {
-        showNotification('Трек не найден', 'error');
+        showNotification('Track not found', 'error');
         return;
     }
 
@@ -1213,12 +1299,14 @@ async function playTrack(index) {
     state.currentTrack = track;
 
     if (!track.audio && !track.isDemo) {
-        showNotification('🔇 Нет ссылки для прослушивания', 'info', 3000);
+        showNotification('🔇 No audio available', 'info', 3000);
         updatePlayerInfo(track);
         if (track.source === 'SoundCloud' && track.id) {
             try {
                 const data = await API.soundcloud.getTrack(track.id);
-                if (data && data.stream_url) track.audio = data.stream_url;
+                if (data && data.stream_url) {
+                    track.audio = data.stream_url;
+                }
             } catch (e) { console.debug('Could not get SoundCloud stream:', e); }
         }
         if (!track.audio) return;
@@ -1240,7 +1328,7 @@ async function playTrack(index) {
         showNotification(`▶ ${track.name} - ${track.artist}`, 'info', 2000);
     } catch (err) {
         const errorId = `${ERROR_CODES.PLAYBACK_FAILED}_${Date.now()}`;
-        console.error(`[${errorId}] Ошибка:`, err);
+        console.error(`[${errorId}] Error:`, err);
         if (track.source === 'SoundCloud' && track.id) {
             try {
                 const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(`https://api.soundcloud.com/tracks/${track.id}/stream?client_id=${API_CONFIG.SOUNDCLOUD_CLIENT_ID}`)}`;
@@ -1253,7 +1341,7 @@ async function playTrack(index) {
                 return;
             } catch (e) { console.debug('SoundCloud proxy playback failed:', e); }
         }
-        showNotification(`⚠️ Ошибка воспроизведения (${errorId})`, 'error', 4000);
+        showNotification(`⚠️ Playback error (${errorId})`, 'error', 4000);
         dom.playBtn.textContent = '▶';
         state.isPlaying = false;
     }
@@ -1261,33 +1349,33 @@ async function playTrack(index) {
 }
 
 function updatePlayerInfo(track) {
-    dom.playerTitle.textContent = track.name || 'Без названия';
-    dom.playerArtist.textContent = track.artist || 'Неизвестный';
+    dom.playerTitle.textContent = track.name || 'Untitled';
+    dom.playerArtist.textContent = track.artist || 'Unknown';
     dom.playerCover.src = track.cover || 'https://via.placeholder.com/60';
-    dom.playerCover.alt = track.name || 'Обложка';
+    dom.playerCover.alt = track.name || 'Cover';
 }
 
 // ============================================================
-// СКАЧИВАНИЕ
+// DOWNLOAD
 // ============================================================
 
 async function downloadTrack(index) {
     const track = state.tracks[index];
     if (!track) {
-        showNotification('Трек не найден', 'error');
+        showNotification('Track not found', 'error');
         return;
     }
 
     if (state.isDownloading) {
-        showNotification('⏳ Уже идёт загрузка', 'info', 2000);
+        showNotification('⏳ Download in progress', 'info', 2000);
         return;
     }
 
     const errorId = `${ERROR_CODES.DOWNLOAD_FAILED}_${Date.now()}`;
-    console.log(`[${errorId}] Скачивание: ${track.name}`);
+    console.log(`[${errorId}] Download: ${track.name}`);
 
     if (track.isDemo) {
-        showNotification('🎵 Демо-трек недоступен для скачивания', 'info', 3000);
+        showNotification('🎵 Demo track unavailable', 'info', 3000);
         downloadTrackInfo(track);
         return;
     }
@@ -1296,13 +1384,13 @@ async function downloadTrack(index) {
 
     if (track.source === 'SoundCloud' && track.id && !downloadUrl) {
         try {
-            showNotification('⏳ Получение ссылки...', 'info', 2000);
+            showNotification('⏳ Getting link...', 'info', 2000);
             const data = await API.soundcloud.getTrack(track.id);
             if (data && data.downloadable && data.download_url) {
                 downloadUrl = data.download_url;
             } else if (data && data.stream_url) {
                 downloadUrl = `${data.stream_url}?client_id=${API_CONFIG.SOUNDCLOUD_CLIENT_ID}`;
-                showNotification('⚠️ Доступен только стриминг', 'warning', 3000);
+                showNotification('⚠️ Streaming only available', 'warning', 3000);
             }
         } catch (e) { console.debug('Could not get download URL:', e); }
     }
@@ -1324,28 +1412,28 @@ async function downloadTrack(index) {
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            showNotification(`✅ ${track.name} скачивается`, 'success', 3000);
-            console.log(`[${errorId}] Скачивание начато`);
+            showNotification(`✅ ${track.name} downloading`, 'success', 3000);
+            console.log(`[${errorId}] Download started`);
             setTimeout(() => { state.isDownloading = false; }, 5000);
         } catch (error) {
-            console.error(`[${errorId}] Ошибка:`, error);
+            console.error(`[${errorId}] Error:`, error);
             state.isDownloading = false;
             if (track.source === 'SoundCloud') {
-                showNotification('⚠️ Скачивание недоступно. Сохраняем информацию.', 'warning', 4000);
+                showNotification('⚠️ Download unavailable. Saving info.', 'warning', 4000);
                 downloadTrackInfo(track);
             } else {
-                showNotification(`⚠️ Ошибка: ${error.message}`, 'error', 4000);
+                showNotification(`⚠️ Error: ${error.message}`, 'error', 4000);
                 downloadTrackInfo(track);
             }
         }
     } else {
-        showNotification('🔇 Ссылка недоступна, сохраняем информацию', 'info', 3000);
+        showNotification('🔇 Link unavailable, saving info', 'info', 3000);
         downloadTrackInfo(track);
     }
 }
 
 function downloadTrackInfo(track) {
-    const text = `🎵 ${track.name}\n━━━━━━━━━━━━━━━━━━━━━━━━━━\nИсполнитель: ${track.artist}\nАльбом: ${track.album || 'Неизвестен'}\nИсточник: ${track.source || 'Неизвестен'}\nДлительность: ${track.duration ? formatTime(track.duration) : 'Неизвестно'}\n${track.genre ? `Жанр: ${track.genre}` : ''}\n\n🔗 Ссылка: ${track.audio || track.permalink || 'Недоступна'}\n`;
+    const text = `🎵 ${track.name}\n━━━━━━━━━━━━━━━━━━━━━━━━━━\nArtist: ${track.artist}\nAlbum: ${track.album || 'Unknown'}\nSource: ${track.source || 'Unknown'}\nDuration: ${track.duration ? formatTime(track.duration) : 'Unknown'}\n${track.genre ? `Genre: ${track.genre}` : ''}\n\n🔗 Link: ${track.audio || track.permalink || 'Unavailable'}\n`;
     const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
@@ -1354,39 +1442,39 @@ function downloadTrackInfo(track) {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(link.href);
-    showNotification('📄 Информация сохранена', 'info', 3000);
+    showNotification('📄 Info saved', 'info', 3000);
 }
 
 function downloadPlaylist() {
     if (!state.playlist || state.playlist.length === 0) {
-        showNotification('Плейлист пуст', 'info');
+        showNotification('Playlist is empty', 'info');
         return;
     }
-    let text = `🎵 Плейлист MusicHub\n━━━━━━━━━━━━━━━━━━━━━━━━━━\nДата: ${new Date().toLocaleString()}\nТреков: ${state.playlist.length}\n\n`;
+    let text = `🎵 MusicHub Playlist\n━━━━━━━━━━━━━━━━━━━━━━━━━━\nDate: ${new Date().toLocaleString()}\nTracks: ${state.playlist.length}\n\n`;
     state.playlist.forEach((track, i) => {
-        text += `${String(i+1).padStart(2, '0')}. ${track.artist || 'Неизвестный'} — ${track.name || 'Без названия'}\n`;
-        text += `   🔗 ${track.audio || track.permalink || 'Ссылка недоступна'}\n`;
-        text += `   📁 ${track.source || 'Неизвестен'}\n\n`;
+        text += `${String(i+1).padStart(2, '0')}. ${track.artist || 'Unknown'} — ${track.name || 'Untitled'}\n`;
+        text += `   🔗 ${track.audio || track.permalink || 'Link unavailable'}\n`;
+        text += `   📁 ${track.source || 'Unknown'}\n\n`;
     });
     const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `плейлист_${new Date().toISOString().slice(0,10)}.txt`;
+    link.download = `playlist_${new Date().toISOString().slice(0,10)}.txt`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(link.href);
-    showNotification(`✅ Плейлист (${state.playlist.length} треков)`, 'success', 3000);
+    showNotification(`✅ Playlist (${state.playlist.length} tracks)`, 'success', 3000);
 }
 
 // ============================================================
-// ТЕКСТЫ ПЕСЕН
+// LYRICS
 // ============================================================
 
 async function showLyrics() {
     const track = state.currentTrack;
     if (!track) {
-        showNotification('Сначала выберите трек', 'info');
+        showNotification('Select a track first', 'info');
         return;
     }
     dom.modalTitle.textContent = `📝 ${track.name} - ${track.artist}`;
@@ -1395,7 +1483,7 @@ async function showLyrics() {
     state.modalOpen = true;
 
     try {
-        let lyrics = 'Текст не найден 😔';
+        let lyrics = 'Lyrics not found 😔';
         const sources = [
             async () => {
                 try {
@@ -1435,57 +1523,60 @@ async function showLyrics() {
         saveToCache(`lyrics_${track.id}`, lyrics);
     } catch (error) {
         console.error(`[${ERROR_CODES.LYRICS_FAILED}]`, error);
-        dom.modalBody.innerHTML = `<div style="color:#ef4444;text-align:center;padding:20px;">❌ Не удалось загрузить текст</div>`;
+        dom.modalBody.innerHTML = `<div style="color:#ef4444;text-align:center;padding:20px;">❌ Could not load lyrics</div>`;
     }
 }
 
 function addToFavorites() {
     const track = state.currentTrack;
-    if (!track) { showNotification('Сначала выберите трек', 'info'); return; }
+    if (!track) { showNotification('Select a track first', 'info'); return; }
     const favorites = JSON.parse(localStorage.getItem('musichub_favorites') || '[]');
     if (!favorites.some(f => f.id === track.id)) {
         favorites.push(track);
         localStorage.setItem('musichub_favorites', JSON.stringify(favorites));
-        showNotification('❤️ Добавлено в избранное', 'success', 2000);
+        showNotification('❤️ Added to favorites', 'success', 2000);
     } else {
-        showNotification('Уже в избранном', 'info', 2000);
+        showNotification('Already in favorites', 'info', 2000);
     }
 }
 
 async function shareTrack() {
     const track = state.currentTrack;
-    if (!track) { showNotification('Сначала выберите трек', 'info'); return; }
+    if (!track) { showNotification('Select a track first', 'info'); return; }
     if (navigator.share) {
         try {
             await navigator.share({
                 title: `${track.name} - ${track.artist}`,
-                text: `Слушаю "${track.name}" от ${track.artist} на MusicHub`,
+                text: `Listening to "${track.name}" by ${track.artist} on MusicHub`,
                 url: track.permalink || track.audio || window.location.href
             });
         } catch (error) {
             if (error.name !== 'AbortError') {
-                console.error('Ошибка шеринга:', error);
-                showNotification('Ошибка при открытии шеринга', 'error', 3000);
+                console.error('Share error:', error);
+                showNotification('Error sharing', 'error', 3000);
             }
         }
     } else {
         const text = `${track.name} - ${track.artist}\n${track.permalink || track.audio || window.location.href}`;
         navigator.clipboard.writeText(text)
-            .then(() => showNotification('📋 Скопировано в буфер обмена', 'success', 2000))
-            .catch(() => showNotification('Не удалось скопировать', 'error', 3000));
+            .then(() => showNotification('📋 Copied to clipboard', 'success', 2000))
+            .catch(() => showNotification('Could not copy', 'error', 3000));
     }
 }
 
+// ============================================================
+// EVENT LISTENERS
+// ============================================================
 
 dom.playBtn.addEventListener('click', () => {
     const audio = dom.audio;
     if (!audio.src) {
         if (state.currentTrack) playTrack(state.currentIndex);
-        else showNotification('Snachala vibrite trek', 'info');
+        else showNotification('Select a track first', 'info');
         return;
     }
     if (audio.paused) {
-        audio.play().catch(() => showNotification('Oshibka vosproizvedeniya', 'error'));
+        audio.play().catch(() => showNotification('Playback error', 'error'));
         dom.playBtn.textContent = '⏸';
         state.isPlaying = true;
     } else {
@@ -1542,7 +1633,7 @@ dom.audio.addEventListener('error', (e) => {
     console.error(`[${ERROR_CODES.PLAYBACK_FAILED}]`, e);
     dom.playBtn.textContent = '▶';
     state.isPlaying = false;
-    showNotification('⚠️ Oshibka vosproizvedeniya', 'error', 4000);
+    showNotification('⚠️ Playback error', 'error', 4000);
 });
 
 dom.searchBtn.addEventListener('click', () => searchMusic(dom.searchInput.value));
@@ -1562,7 +1653,7 @@ dom.downloadTrack.addEventListener('click', () => {
         if (idx !== -1) downloadTrack(idx);
         else downloadTrack(state.currentIndex);
     } else {
-        showNotification('Snachala vibrite trek', 'info');
+        showNotification('Select a track first', 'info');
     }
 });
 dom.downloadPlaylist.addEventListener('click', downloadPlaylist);
@@ -1614,16 +1705,6 @@ dom.themeToggle.addEventListener('click', () => {
     }
 });
 
-document.addEventListener('dblclick', (e) => {
-    const trackCard = e.target.closest('.track-card');
-    if (trackCard) {
-        const index = parseInt(trackCard.dataset.index);
-        if (!isNaN(index) && state.tracks[index]) {
-            showSinglePage(state.tracks[index].id);
-        }
-    }
-});
-
 dom.playerCover?.addEventListener('dblclick', () => {
     if (state.currentTrack) openFullscreenPlayer();
 });
@@ -1647,8 +1728,8 @@ document.addEventListener('keydown', (e) => {
 // ============================================================
 
 window.addEventListener('DOMContentLoaded', () => {
-    console.log('🎵 MusicHub v2.3 zagruzhen');
-    console.log(`📊 Rezhim: ${navigator.onLine ? 'Online' : 'Offline'}`);
+    console.log('🎵 MusicHub v2.3 loaded');
+    console.log(`📊 Mode: ${navigator.onLine ? 'Online' : 'Offline'}`);
     dom.audio.volume = state.volume;
     if (dom.volumeControl) dom.volumeControl.value = state.volume;
     const savedQuery = loadFromCache('last_search');
@@ -1656,12 +1737,12 @@ window.addEventListener('DOMContentLoaded', () => {
         dom.searchInput.value = savedQuery;
         searchMusic(savedQuery);
     } else {
-        searchMusic('populyarnoe');
+        searchMusic('popular');
     }
 });
 
-window.addEventListener('online', () => showNotification('🌐 Set vosstanovlena', 'info', 3000));
-window.addEventListener('offline', () => showNotification('📡 Net soedineniya, rabotayu oflayn', 'warning', 3000));
+window.addEventListener('online', () => showNotification('🌐 Network restored', 'info', 3000));
+window.addEventListener('offline', () => showNotification('📡 Offline mode', 'warning', 3000));
 
 window.musicHub = { search: searchMusic, play: playTrack, state: state, API: API, download: downloadTrack };
 
@@ -1694,3 +1775,7 @@ window.updateFullscreenPlayerInfo = updateFullscreenPlayerInfo;
 window.isTrackLiked = isTrackLiked;
 window.formatNumber = formatNumber;
 window.searchMusic = searchMusic;
+window.showAlbumPage = showAlbumPage;
+window.playAlbumTracks = playAlbumTracks;
+window.playTrackFromAlbum = playTrackFromAlbum;
+window.shareAlbum = shareAlbum;
