@@ -1,9 +1,9 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>🎵 MusicHub — музыкальный поиск</title>
+    <title> MusicHub </title>
     <link rel="stylesheet" href="style.css" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet" />
 </head>
@@ -31,7 +31,7 @@
 
     <!-- Основной контент -->
     <main>
-        <!-- Модальное окно (внутри страницы) -->
+        <!-- Модальное окно -->
         <div id="modal" class="modal hidden">
             <div class="modal-content">
                 <div class="modal-header">
@@ -59,7 +59,7 @@
             <div id="albumsContainer" class="albums-grid"></div>
         </section>
 
-        <!-- Секция исполнителя (появляется при клике) -->
+        <!-- Секция исполнителя (старая версия) -->
         <section id="artistSection" class="hidden">
             <div class="section-header">
                 <button id="backToSearch" class="back-btn">← Назад</button>
@@ -95,6 +95,8 @@
             <button id="downloadTrackBtn" class="action-btn" title="Скачать трек">⬇</button>
             <button id="downloadPlaylistBtn" class="action-btn" title="Скачать плейлист">📋</button>
             <button id="showLyricsBtn" class="action-btn" title="Текст песни">📝</button>
+            <button id="shareTrackBtn" class="action-btn" title="Поделиться">📤</button>
+            <button id="addToFavoritesBtn" class="action-btn" title="В избранное">❤️</button>
         </div>
         <audio id="audioPlayer"></audio>
     </footer>
