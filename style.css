@@ -46,9 +46,11 @@ body {
     font-weight: 800;
     margin-bottom: 40px;
     padding-left: 12px;
+    cursor: pointer;
 }
 
 .logo-icon { color: var(--accent); }
+.highlight { color: var(--accent); }
 
 .main-nav { display: flex; flex-direction: column; gap: 4px; margin-bottom: 40px; }
 
@@ -116,7 +118,7 @@ body {
 .search-box {
     background: #27272a;
     border-radius: 50px;
-    padding: 10px 20px;
+    padding: 6px 6px 6px 20px;
     display: flex;
     align-items: center;
     width: 500px;
@@ -137,6 +139,18 @@ body {
     font-size: 15px;
 }
 
+#searchBtn {
+    background: var(--accent);
+    color: #000;
+    border: none;
+    padding: 8px 20px;
+    border-radius: 40px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s;
+}
+#searchBtn:hover { background: var(--accent-hover); }
+
 .user-profile .avatar {
     width: 40px;
     height: 40px;
@@ -152,7 +166,7 @@ body {
 .view {
     flex: 1;
     overflow-y: auto;
-    padding: 20px 40px 120px 40px; /* Bottom padding for player */
+    padding: 20px 40px 120px 40px;
     display: none;
 }
 
@@ -250,9 +264,10 @@ body {
     border-radius: var(--radius);
     transition: 0.2s;
     cursor: pointer;
+    position: relative;
 }
 
-.track-card:hover { background: #2a2a32; }
+.track-card:hover { background: #2a2a32; transform: translateY(-4px); }
 
 .track-card img {
     width: 100%;
@@ -274,6 +289,7 @@ body {
     font-size: 13px;
     color: var(--text-sub);
     cursor: pointer;
+    margin-bottom: 12px;
 }
 
 .track-card p:hover { color: var(--accent); text-decoration: underline; }
@@ -281,7 +297,6 @@ body {
 .card-actions {
     display: flex;
     gap: 8px;
-    margin-top: 12px;
 }
 
 .btn-sm {
@@ -293,18 +308,20 @@ body {
     font-weight: 600;
     cursor: pointer;
     transition: 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
 }
 
 .btn-play-sm { background: var(--accent); color: #000; }
 .btn-play-sm:hover { background: var(--accent-hover); }
-.btn-dl-sm { background: transparent; border: 1px solid #444; color: #aaa; }
-.btn-dl-sm:hover:not(:disabled) { border-color: #fff; color: #fff; }
-.btn-dl-sm:disabled { opacity: 0.3; cursor: not-allowed; }
+
+.btn-dl-sm { background: #333; color: #fff; border: 1px solid #444; }
+.btn-dl-sm:hover { background: #444; border-color: #666; }
 
 /* ARTIST PAGE V2 */
-.artist-hero {
-    margin-bottom: 40px;
-}
+.artist-hero { margin-bottom: 40px; }
 
 .back-btn {
     background: rgba(255,255,255,0.1);
@@ -438,7 +455,7 @@ body {
 .mini-player {
     position: fixed;
     bottom: 0;
-    left: 240px; /* Width of sidebar */
+    left: 240px;
     right: 0;
     height: 80px;
     background: #18181b;
@@ -496,7 +513,7 @@ body {
 #fsProg::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; background: #fff; border-radius: 50%; cursor: pointer; }
 .fs-times { display: flex; justify-content: space-between; font-size: 12px; color: #666; }
 
-.fs-ctrls { display: flex; align-items: center; justify-content: center; gap: 30px; }
+.fs-ctrls { display: flex; align-items: center; justify-content: center; gap: 30px; margin-bottom: 30px; }
 .fs-c { background: none; border: none; color: #aaa; font-size: 24px; cursor: pointer; }
 .fs-c:hover { color: #fff; }
 .fs-play {
@@ -506,15 +523,29 @@ body {
 }
 .fs-play:hover { transform: scale(1.05); }
 
-/* MODAL & TOAST */
-.modal { position: fixed; inset: 0; z-index: 2000; display: flex; align-items: center; justify-content: center; }
-.modal.hidden { display: none; }
-.modal-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); }
-.modal-body { position: relative; background: #1e1e24; width: 90%; max-width: 500px; max-height: 80vh; border-radius: 16px; padding: 24px; overflow-y: auto; z-index: 1; }
-.modal-head { display: flex; justify-content: space-between; margin-bottom: 20px; }
-.modal-head button { background: none; border: none; color: #aaa; font-size: 20px; cursor: pointer; }
-.modal-content { color: #ccc; line-height: 1.8; white-space: pre-wrap; }
+.fs-actions-bottom {
+    margin-top: 20px;
+}
 
+.fs-action-btn {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #fff;
+    padding: 10px 24px;
+    border-radius: 50px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.fs-action-btn:hover {
+    background: var(--accent);
+    color: #000;
+    border-color: var(--accent);
+}
+
+/* TOAST */
 .toast {
     position: fixed; top: 20px; right: 20px; z-index: 3000;
     background: #27272a; border: 1px solid #333; padding: 12px 24px;
