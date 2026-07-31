@@ -1,99 +1,125 @@
-﻿// ===== State & Config =====
+// ===== Config =====
+const ERROR_CODES = {
+    SEARCH_FAILED: 'ERR_SEARCH_001',
+    PLAYBACK_FAILED: 'ERR_PLAY_001',
+    DOWNLOAD_FAILED: 'ERR_DOWN_001',
+    LYRICS_FAILED: 'ERR_LYRICS_001',
+    API_TIMEOUT: 'ERR_API_001',
+    NO_AUDIO: 'ERR_AUDIO_001',
+    ARTIST_NOT_FOUND: 'ERR_ARTIST_001',
+    NETWORK_ERROR: 'ERR_NET_001',
+    CACHE_ERROR: 'ERR_CACHE_001',
+    NO_INTERNET: 'ERR_666'
+};
+
+const API_CONFIG = {
+    ITUNES_URL: 'https://itunes.apple.com/search',
+    YOUTUBE_KEY: 'YOUR_YOUTUBE_API_KEY', // Замените на свой ключ
+    SOUNDCLOUD_CLIENT_ID: 'YOUR_SOUNDCLOUD_CLIENT_ID', // Замените на свой ID
+    TIMEOUT: 15000,
+    MAX_TRACKS: 30,
+    CACHE_DURATION: 3600000
+};
+
 const state = {
     tracks: [],
     currentIndex: 0,
     isPlaying: false,
     currentTrack: null,
     playlist: [],
+    modalOpen: false,
     artistTracks: [],
-    searchHistory: [],
+    searchHistory: JSON.parse(localStorage.getItem('musichub_history') || '[]'),
     volume: 0.8,
-    isShuffle: false,
-    isRepeat: false,
-    currentPage: 'home',
-    followedArtists: JSON.parse(localStorage.getItem('mh_followed') || '[]'),
-    likedTracks: JSON.parse(localStorage.getItem('mh_liked') || '[]')
+    isDownloading: false,
+    isOnline: navigator.onLine
 };
 
 const dom = {};
 
-const API_CONFIG = {
-    ITUNES_URL: 'https://itunes.apple.com/search',
-    TIMEOUT: 10000,
-    MAX_TRACKS: 20
-};
-
-// ===== Demo Data =====
-const DEMO_TRACKS = [
-    { id: 1, name: 'Тёмный принц', artist: 'Алексей Воробьёв', album: 'Лучшее', cover: 'https://picsum.photos/seed/track1/300/300', duration: 210, source: 'Demo', genre: 'Pop', audio: null },
-    { id: 2, name: 'Malo 2.0', artist: 'ЕГОР КРИД, OG Buda, Toxi$', album: 'Malo 2.0', cover: 'https://picsum.photos/seed/track2/300/300', duration: 326, source: 'Demo', genre: 'Hip-Hop', audio: null },
-    { id: 3, name: 'Jealous', artist: '9mice, ЕГОР КРИД, тёмный принц', album: 'Jealous', cover: 'https://picsum.photos/seed/track3/300/300', duration: 186, source: 'Demo', genre: 'Hip-Hop', audio: null },
-    { id: 4, name: 'Blinding Lights', artist: 'The Weeknd', album: 'After Hours', cover: 'https://picsum.photos/seed/track4/300/300', duration: 200, source: 'Demo', genre: 'Pop', audio: null },
-    { id: 5, name: 'Shape of You', artist: 'Ed Sheeran', album: '÷', cover: 'https://picsum.photos/seed/track5/300/300', duration: 234, source: 'Demo', genre: 'Pop', audio: null },
-    { id: 6, name: 'Bohemian Rhapsody', artist: 'Queen', album: 'A Night at the Opera', cover: 'https://picsum.photos/seed/track6/300/300', duration: 354, source: 'Demo', genre: 'Rock', audio: null },
-    { id: 7, name: 'Hotel California', artist: 'Eagles', album: 'Hotel California', cover: 'https://picsum.photos/seed/track7/300/300', duration: 391, source: 'Demo', genre: 'Rock', audio: null },
-    { id: 8, name: 'Imagine', artist: 'John Lennon', album: 'Imagine', cover: 'https://picsum.photos/seed/track8/300/300', duration: 183, source: 'Demo', genre: 'Pop', audio: null },
-    { id: 9, name: 'Smells Like Teen Spirit', artist: 'Nirvana', album: 'Nevermind', cover: 'https://picsum.photos/seed/track9/300/300', duration: 301, source: 'Demo', genre: 'Rock', audio: null },
-    { id: 10, name: 'Billie Jean', artist: 'Michael Jackson', album: 'Thriller', cover: 'https://picsum.photos/seed/track10/300/300', duration: 294, source: 'Demo', genre: 'Pop', audio: null },
-    { id: 11, name: 'Lose Yourself', artist: 'Eminem', album: '8 Mile', cover: 'https://picsum.photos/seed/track11/300/300', duration: 326, source: 'Demo', genre: 'Hip-Hop', audio: null },
-    { id: 12, name: 'Wonderwall', artist: 'Oasis', album: "What's the Story Morning Glory?", cover: 'https://picsum.photos/seed/track12/300/300', duration: 258, source: 'Demo', genre: 'Rock', audio: null },
-];
-
-const DEMO_ALBUMS = [
-    { id: 101, name: 'Лучшие хиты', artist: 'Макс Корж', cover: 'https://picsum.photos/seed/album1/300/300', tracks: 12 },
-    { id: 102, name: 'Thriller', artist: 'Michael Jackson', cover: 'https://picsum.photos/seed/album2/300/300', tracks: 9 },
-    { id: 103, name: 'Back in Black', artist: 'AC/DC', cover: 'https://picsum.photos/seed/album3/300/300', tracks: 10 },
-    { id: 104, name: 'Nevermind', artist: 'Nirvana', cover: 'https://picsum.photos/seed/album4/300/300', tracks: 12 },
-    { id: 105, name: 'Abbey Road', artist: 'The Beatles', cover: 'https://picsum.photos/seed/album5/300/300', tracks: 17 },
-    { id: 106, name: 'The Dark Side of the Moon', artist: 'Pink Floyd', cover: 'https://picsum.photos/seed/album6/300/300', tracks: 10 },
-];
-
-const ARTIST_DB = {
-    'тёмный принц': {
-        listeners: '5 445 077',
-        bio: 'Тёмный принц — российский музыкальный исполнитель, известный своими collaborations с ведущими артистами хип-хоп сцены. Начал карьеру в конце 2010-х годов и быстро набрал популярность благодаря уникальному стилю и энергичным performances.',
-        image: 'https://picsum.photos/seed/artist-dark-prince/400/400',
-        tracks: [
-            { id: 2, name: 'Malo 2.0', artists: 'ЕГОР КРИД, OG Buda, Toxi$, Мэйби Бэйби, Baby Cute, Дора, madk1d, тёмный принц', duration: 326, cover: 'https://picsum.photos/seed/track2/300/300' },
-            { id: 3, name: 'Jealous', artists: '9mice, ЕГОР КРИД, тёмный принц, madk1d', duration: 186, cover: 'https://picsum.photos/seed/track3/300/300' },
-            { id: 20, name: 'Утекай', artists: 'тёмный принц', duration: 201, cover: 'https://picsum.photos/seed/track20/300/300' },
-            { id: 21, name: 'Ночь', artists: 'тёмный принц, OG Buda', duration: 195, cover: 'https://picsum.photos/seed/track21/300/300' },
-            { id: 22, name: 'Город', artists: 'тёмный принц', duration: 218, cover: 'https://picsum.photos/seed/track22/300/300' },
-        ],
-        release: { name: 'Malo 2.0', cover: 'https://picsum.photos/seed/release1/300/300', year: '2026' }
-    }
-};
-
-// ===== Utilities =====
-function $(sel) { return document.querySelector(sel); }
-function $$(sel) { return document.querySelectorAll(sel); }
+// ===== Utils =====
+function $(selector) { return document.querySelector(selector); }
+function $$(selector) { return document.querySelectorAll(selector); }
 
 function initDom() {
-    const ids = [
-        'searchInput', 'searchInputPage', 'tracksContainer', 'albumsContainer',
-        'miniPlayer', 'miniCover', 'miniTitle', 'miniArtist', 'miniPlayBtn',
-        'miniPrev', 'miniNext', 'miniShuffle', 'miniRepeat',
-        'miniProgressBar', 'miniCurrentTime', 'miniTotalTime',
-        'miniLikeBtn', 'miniExpandBtn',
-        'fullscreenPlayer', 'fsBg', 'fsArtwork', 'fsTitle', 'fsArtist',
-        'fsPlayBtn', 'fsPrev', 'fsNext', 'fsShuffle', 'fsRepeat',
-        'fsProgressBar', 'fsCurrentTime', 'fsTotalTime',
-        'fsLikeBtn', 'fsDownloadBtn', 'fsLyricsBtn', 'fsQueueBtn', 'fsCloseBtn',
-        'lyricsModal', 'lyricsModalOverlay', 'lyricsModalClose', 'lyricsTitle', 'lyricsBody',
-        'notification', 'themeToggle', 'audioPlayer',
-        'artistPage', 'artistAvatar', 'artistName', 'artistListeners',
-        'artistPlayBtn', 'artistTrailerBtn', 'artistLikeBtn', 'artistShareBtn', 'artistMoreBtn',
-        'artistTrackList', 'artistRelease', 'artistBio', 'artistHeroBg',
-        'homePage', 'searchPage', 'searchResults'
+    const elements = [
+        'searchInput', 'searchBtn', 'searchHistory',
+        'tracksContainer', 'albumsContainer',
+        'resultsTitle', 'resultsCount',
+        'artistSection', 'artistPageV2', 'singlePageV2',
+        'playerCover', 'playerTitle', 'playerArtist',
+        'playBtn', 'prevBtn', 'nextBtn',
+        'progressBar', 'currentTime', 'totalTime',
+        'audioPlayer',
+        'downloadTrack', 'downloadPlaylist',
+        'showLyrics', 'addToFavorites', 'shareTrack',
+        'modal', 'modalTitle', 'modalBody', 'modalClose',
+        'notification', 'themeToggle', 'offlineError'
     ];
-    ids.forEach(id => { dom[id] = document.getElementById(id); });
+    elements.forEach(id => { dom[id] = document.getElementById(id); });
+    dom.audio = document.getElementById('audioPlayer');
 }
 
-function formatTime(sec) {
-    if (!sec || isNaN(sec)) return '0:00';
-    const m = Math.floor(sec / 60);
-    const s = Math.floor(sec % 60);
-    return `${m}:${s.toString().padStart(2, '0')}`;
+function showNotification(message, type = 'info', duration = 4000) {
+    const el = dom.notification;
+    if (!el) return;
+    el.textContent = message;
+    el.className = `notification ${type}`;
+    el.classList.remove('hidden');
+    clearTimeout(el._timeout);
+    el._timeout = setTimeout(() => el.classList.add('hidden'), duration);
+}
+
+function checkOnlineStatus() {
+    state.isOnline = navigator.onLine;
+    if (!state.isOnline) {
+        showOfflineError();
+    } else {
+        hideOfflineError();
+    }
+    return state.isOnline;
+}
+
+function showOfflineError() {
+    if (dom.offlineError) {
+        dom.offlineError.classList.remove('hidden');
+        $$('#resultsSection, #albumsSection').forEach(el => el.classList.add('hidden'));
+    }
+}
+
+function hideOfflineError() {
+    if (dom.offlineError) {
+        dom.offlineError.classList.add('hidden');
+        $$('#resultsSection, #albumsSection').forEach(el => el.classList.remove('hidden'));
+    }
+}
+
+function saveToCache(key, data, duration = API_CONFIG.CACHE_DURATION) {
+    try {
+        localStorage.setItem(`musichub_${key}`, JSON.stringify({ 
+            data, 
+            timestamp: Date.now(), 
+            duration 
+        }));
+    } catch (error) {
+        console.error(`[${ERROR_CODES.CACHE_ERROR}]`, error);
+    }
+}
+
+function loadFromCache(key) {
+    try {
+        const raw = localStorage.getItem(`musichub_${key}`);
+        if (!raw) return null;
+        const entry = JSON.parse(raw);
+        if (Date.now() - entry.timestamp > entry.duration) {
+            localStorage.removeItem(`musichub_${key}`);
+            return null;
+        }
+        return entry.data;
+    } catch (error) {
+        console.error(`[${ERROR_CODES.CACHE_ERROR}]`, error);
+        return null;
+    }
 }
 
 function escapeHtml(text) {
@@ -103,284 +129,601 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-function showNotification(msg, type = 'info', duration = 3000) {
-    const el = dom.notification;
-    if (!el) return;
-    el.textContent = msg;
-    el.className = `notification ${type}`;
-    el.classList.remove('hidden');
-    clearTimeout(el._timeout);
-    el._timeout = setTimeout(() => el.classList.add('hidden'), duration);
+function formatTime(seconds) {
+    if (!seconds || isNaN(seconds)) return '0:00';
+    const min = Math.floor(seconds / 60);
+    const sec = Math.floor(seconds % 60);
+    return `${min}:${sec.toString().padStart(2, '0')}`;
 }
 
-// ===== Page Navigation =====
-function showPage(pageName) {
-    $$('.page').forEach(p => p.classList.remove('active'));
-    $$('.nav-item').forEach(n => n.classList.remove('active'));
-    
-    const pageMap = { home: 'homePage', search: 'searchPage', artist: 'artistPage' };
-    const pageEl = document.getElementById(pageMap[pageName]);
-    if (pageEl) pageEl.classList.add('active');
-    
-    const navItem = document.querySelector(`.nav-item[data-page="${pageName}"]`);
-    if (navItem) navItem.classList.add('active');
-    
-    state.currentPage = pageName;
-    window.scrollTo(0, 0);
+function formatNumber(num) {
+    if (!num || isNaN(num)) return '0';
+    return num.toLocaleString('ru-RU');
 }
 
-// ===== Render Functions =====
-function renderTracks(tracks, container) {
-    if (!tracks || tracks.length === 0) {
-        container.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted);">Ничего не найдено</div>';
+async function fetchWithTimeout(url, options = {}) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), API_CONFIG.TIMEOUT);
+    try {
+        const response = await fetch(url, { ...options, signal: controller.signal });
+        clearTimeout(timeout);
+        return response;
+    } catch (error) {
+        clearTimeout(timeout);
+        throw error;
+    }
+}
+
+// ===== Search APIs =====
+const SearchAPI = {
+    iTunes: async (query) => {
+        try {
+            const url = `${API_CONFIG.ITUNES_URL}?term=${encodeURIComponent(query)}&limit=${API_CONFIG.MAX_TRACKS}&entity=musicTrack`;
+            const response = await fetchWithTimeout(url);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+            
+            return {
+                source: 'iTunes',
+                tracks: (data.results || []).filter(item => item.kind === 'song').map(item => ({
+                    id: item.trackId,
+                    name: item.trackName || 'Без названия',
+                    artist: item.artistName || 'Неизвестный',
+                    artistId: item.artistId,
+                    album: item.collectionName || 'Альбом',
+                    albumId: item.collectionId,
+                    cover: item.artworkUrl100?.replace('100x100', '300x300') || 'https://via.placeholder.com/300',
+                    audio: item.previewUrl,
+                    duration: item.trackTimeMillis ? Math.floor(item.trackTimeMillis / 1000) : 180,
+                    source: 'iTunes',
+                    type: 'track'
+                })),
+                albums: (data.results || []).reduce((acc, item) => {
+                    if (item.collectionId && !acc.has(item.collectionId)) {
+                        acc.set(item.collectionId, {
+                            id: item.collectionId,
+                            name: item.collectionName || 'Альбом',
+                            artist: item.artistName || 'Неизвестный',
+                            artistId: item.artistId,
+                            cover: item.artworkUrl100?.replace('100x100', '300x300') || 'https://via.placeholder.com/300',
+                            tracks: item.trackCount || 0,
+                            type: 'album'
+                        });
+                    }
+                    return acc;
+                }, new Map())
+            };
+        } catch (error) {
+            console.error('iTunes search error:', error);
+            return { source: 'iTunes', tracks: [], albums: new Map() };
+        }
+    },
+
+    SoundCloud: async (query) => {
+        try {
+            // Используем публичные прокси для обхода CORS
+            const proxies = [
+                `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://api.soundcloud.com/tracks?q=${encodeURIComponent(query)}&limit=${API_CONFIG.MAX_TRACKS}&client_id=${API_CONFIG.SOUNDCLOUD_CLIENT_ID}`)}`,
+                `https://corsproxy.io/?https://api.soundcloud.com/tracks?q=${encodeURIComponent(query)}&limit=${API_CONFIG.MAX_TRACKS}&client_id=${API_CONFIG.SOUNDCLOUD_CLIENT_ID}`
+            ];
+            
+            for (const proxyUrl of proxies) {
+                try {
+                    const response = await fetchWithTimeout(proxyUrl);
+                    if (response.ok) {
+                        const data = await response.json();
+                        const tracks = (Array.isArray(data) ? data : []).map(item => ({
+                            id: item.id || Math.random() * 10000,
+                            name: item.title || 'Без названия',
+                            artist: item.user?.username || 'Неизвестный',
+                            artistId: item.user?.id || 0,
+                            album: 'Сингл',
+                            cover: item.artwork_url || 'https://via.placeholder.com/300',
+                            audio: item.stream_url || item.media?.transcodings?.[0]?.url,
+                            duration: Math.floor((item.duration || 180000) / 1000),
+                            source: 'SoundCloud',
+                            type: 'track',
+                            permalink: item.permalink_url
+                        }));
+                        return { source: 'SoundCloud', tracks, albums: new Map() };
+                    }
+                } catch (e) {
+                    console.debug('SoundCloud proxy failed:', e);
+                }
+            }
+            return { source: 'SoundCloud', tracks: [], albums: new Map() };
+        } catch (error) {
+            console.error('SoundCloud search error:', error);
+            return { source: 'SoundCloud', tracks: [], albums: new Map() };
+        }
+    },
+
+    YouTube: async (query) => {
+        try {
+            // YouTube Data API v3
+            const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=${API_CONFIG.MAX_TRACKS}&q=${encodeURIComponent(query + ' music')}&type=video&key=${API_CONFIG.YOUTUBE_KEY}`;
+            const response = await fetchWithTimeout(url);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+            
+            const tracks = (data.items || []).map(item => ({
+                id: item.id.videoId,
+                name: item.snippet.title,
+                artist: item.snippet.channelTitle || 'Неизвестный',
+                artistId: 0,
+                album: 'YouTube',
+                cover: item.snippet.thumbnails?.high?.url || 'https://via.placeholder.com/300',
+                audio: null, // YouTube требует дополнительный парсинг
+                duration: 180,
+                source: 'YouTube',
+                type: 'track',
+                videoId: item.id.videoId
+            }));
+            
+            return { source: 'YouTube', tracks, albums: new Map() };
+        } catch (error) {
+            console.error('YouTube search error:', error);
+            return { source: 'YouTube', tracks: [], albums: new Map() };
+        }
+    },
+
+    YandexMusic: async (query) => {
+        try {
+            // Yandex Music не имеет официального публичного API
+            // Используем публичные endpoints (могут измениться)
+            const url = `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://music.yandex.ru/handlers/search.jsx?text=${encodeURIComponent(query)}&type=all`)}`;
+            const response = await fetchWithTimeout(url);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+            
+            // Парсинг ответа Yandex Music (структура может меняться)
+            const tracks = (data?.tracks?.results || []).map(item => ({
+                id: item.id,
+                name: item.title || 'Без названия',
+                artist: item.artists?.map(a => a.name).join(', ') || 'Неизвестный',
+                artistId: item.artists?.[0]?.id || 0,
+                album: item.albums?.[0]?.title || 'Альбом',
+                cover: item.coverUri ? `https://${item.coverUri.replace('%%', '400x400')}` : 'https://via.placeholder.com/300',
+                audio: null, // Требуется авторизация
+                duration: item.durationMs ? Math.floor(item.durationMs / 1000) : 180,
+                source: 'Yandex Music',
+                type: 'track'
+            }));
+            
+            return { source: 'Yandex Music', tracks, albums: new Map() };
+        } catch (error) {
+            console.error('Yandex Music search error:', error);
+            return { source: 'Yandex Music', tracks: [], albums: new Map() };
+        }
+    }
+};
+
+// ===== Main Search Function =====
+async function searchMusic(query) {
+    if (!query.trim()) {
+        showNotification('Введите запрос для поиска', 'info');
         return;
     }
-    container.innerHTML = tracks.map((track, idx) => `
-        <div class="track-card" data-index="${idx}">
-            <img src="${track.cover}" alt="${escapeHtml(track.name)}" loading="lazy" onerror="this.src='https://via.placeholder.com/300'">
-            <h3 title="${escapeHtml(track.name)}">${escapeHtml(track.name)}</h3>
-            <p class="artist-link" data-artist="${escapeHtml(track.artist)}">${escapeHtml(track.artist)}</p>
-            <span class="source-tag">${track.source || 'Demo'}</span>
-            ${track.genre ? `<span class="source-tag">${track.genre}</span>` : ''}
-            <div class="track-actions">
-                <button class="btn-play" data-index="${idx}">▶ Слушать</button>
-                <button class="btn-download" data-index="${idx}" ${!track.audio ? 'disabled' : ''}>⬇ Скачать</button>
-            </div>
+
+    if (!checkOnlineStatus()) {
+        showNotification(' Нет соединения с интернетом', 'error');
+        return;
+    }
+
+    // Save to history
+    if (!state.searchHistory.includes(query)) {
+        state.searchHistory.unshift(query);
+        if (state.searchHistory.length > 10) state.searchHistory.pop();
+        localStorage.setItem('musichub_history', JSON.stringify(state.searchHistory));
+        updateSearchHistory();
+    }
+
+    // Show loading
+    dom.tracksContainer.innerHTML = `
+        <div class="loading-spinner">
+            <div class="spinner"></div>
+            <p style="margin-top:10px;color:var(--text-muted);">Ищем треки...</p>
         </div>
-    `).join('');
+    `;
+    dom.albumsContainer.innerHTML = '';
+    dom.resultsTitle.textContent = `🔍 "${escapeHtml(query)}"`;
 
-    container.querySelectorAll('.btn-play').forEach(btn => {
+    try {
+        let allTracks = [];
+        let allAlbums = new Map();
+
+        // Search across all platforms
+        const searchPromises = [
+            SearchAPI.iTunes(query),
+            SearchAPI.SoundCloud(query),
+            // SearchAPI.YouTube(query), // Раскомментируйте если есть API ключ
+            // SearchAPI.YandexMusic(query) // Работает нестабильно
+        ];
+
+        const results = await Promise.all(searchPromises);
+
+        // Merge results
+        results.forEach(result => {
+            allTracks = allTracks.concat(result.tracks);
+            result.albums.forEach((value, key) => {
+                if (!allAlbums.has(key)) {
+                    allAlbums.set(key, value);
+                }
+            });
+        });
+
+        // Remove duplicates
+        const uniqueTracks = allTracks.filter((track, index, self) => 
+            index === self.findIndex(t => t.id === track.id && t.source === track.source)
+        );
+
+        if (uniqueTracks.length === 0) {
+            showNotification('Ничего не найдено', 'warning');
+            dom.tracksContainer.innerHTML = `
+                <div style="grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--text-muted);">
+                    <div style="font-size:48px;margin-bottom:16px;">😢</div>
+                    <p style="font-size:18px;">Ничего не найдено по запросу "${escapeHtml(query)}"</p>
+                    <p style="font-size:14px;margin-top:8px;">Попробуйте другой запрос</p>
+                </div>
+            `;
+            return;
+        }
+
+        state.tracks = uniqueTracks;
+        state.playlist = uniqueTracks;
+        state.currentIndex = 0;
+
+        renderTracks(uniqueTracks);
+        renderAlbums(Array.from(allAlbums.values()));
+        dom.resultsCount.textContent = `${uniqueTracks.length} треков`;
+        
+        showNotification(`✅ Найдено ${uniqueTracks.length} треков`, 'success', 2000);
+
+    } catch (error) {
+        console.error('Search error:', error);
+        showNotification(`⚠️ Ошибка поиска: ${error.message}`, 'error', 4000);
+        dom.tracksContainer.innerHTML = `
+            <div style="grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--text-muted);">
+                <div style="font-size:48px;margin-bottom:16px;">⚠️</div>
+                <p style="font-size:18px;font-weight:600;color:#ef4444;">Ошибка загрузки</p>
+                <p style="font-size:14px;margin-top:8px;">${error.message}</p>
+                <button onclick="searchMusic('${escapeHtml(query)}')" 
+                        style="margin-top:20px;padding:10px 30px;background:var(--accent);border:none;border-radius:10px;color:#fff;cursor:pointer;">
+                    ↻ Попробовать снова
+                </button>
+            </div>
+        `;
+    }
+}
+
+function renderTracks(tracks) {
+    if (!tracks || tracks.length === 0) {
+        dom.tracksContainer.innerHTML = `
+            <div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted);">
+                <div style="font-size:32px;margin-bottom:10px;">🎵</div>
+                <p>Ничего не найдено</p>
+            </div>
+        `;
+        return;
+    }
+
+    dom.tracksContainer.innerHTML = tracks.map((track, index) => {
+        const hasAudio = track.audio || track.source === 'SoundCloud';
+        return `
+            <div class="track-card" data-index="${index}" role="button" tabindex="0">
+                <img src="${track.cover}" 
+                     alt="${escapeHtml(track.name)}" 
+                     onerror="this.src='https://via.placeholder.com/300'" 
+                     loading="lazy" />
+                <h3 title="${escapeHtml(track.name)}">${escapeHtml(track.name)}</h3>
+                <p class="artist-link" 
+                   title="${escapeHtml(track.artist)}" 
+                   onclick="event.stopPropagation(); showArtistPage('${escapeHtml(track.artist)}', ${track.artistId})">
+                    ${escapeHtml(track.artist)}
+                </p>
+                <span class="source-tag">${track.source}</span>
+                <div class="actions">
+                    <button class="btn-play" data-index="${index}">
+                        ${hasAudio ? '▶' : '🎵'} ${hasAudio ? 'Слушать' : 'Preview'}
+                    </button>
+                    <button class="btn-artist" onclick="event.stopPropagation(); showArtistPage('${escapeHtml(track.artist)}', ${track.artistId})">
+                         Исполнитель
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    // Event listeners
+    dom.tracksContainer.querySelectorAll('.btn-play').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
-            playTrack(parseInt(btn.dataset.index));
+            const index = parseInt(btn.dataset.index);
+            playTrack(index);
         });
     });
 
-    container.querySelectorAll('.btn-download:not([disabled])').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            showNotification('⬇ Загрузка начата', 'success');
-        });
-    });
-
-    container.querySelectorAll('.artist-link').forEach(link => {
-        link.addEventListener('click', (e) => {
-            e.stopPropagation();
-            showArtistPage(link.dataset.artist);
-        });
-    });
-
-    container.querySelectorAll('.track-card').forEach(card => {
+    dom.tracksContainer.querySelectorAll('.track-card').forEach(card => {
         card.addEventListener('click', () => {
-            playTrack(parseInt(card.dataset.index));
+            const index = parseInt(card.dataset.index);
+            if (state.tracks[index]) {
+                playTrack(index);
+            }
+        });
+        
+        card.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                playTrack(parseInt(card.dataset.index));
+            }
         });
     });
 }
 
-function renderAlbums(albums, container) {
+function renderAlbums(albums) {
     if (!albums || albums.length === 0) {
-        container.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--text-muted);">Нет альбомов</div>';
+        dom.albumsContainer.innerHTML = `
+            <div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--text-muted);">
+                Нет альбомов
+            </div>
+        `;
         return;
     }
-    container.innerHTML = albums.map(album => `
-        <div class="album-card">
-            <img src="${album.cover}" alt="${escapeHtml(album.name)}" loading="lazy" onerror="this.src='https://via.placeholder.com/300'">
+
+    dom.albumsContainer.innerHTML = albums.map(album => `
+        <div class="album-card" data-albumid="${album.id}">
+            <img src="${album.cover}" 
+                 alt="${escapeHtml(album.name)}" 
+                 onerror="this.src='https://via.placeholder.com/300'" 
+                 loading="lazy" />
             <h3 title="${escapeHtml(album.name)}">${escapeHtml(album.name)}</h3>
-            <p class="artist-link" data-artist="${escapeHtml(album.artist)}">${escapeHtml(album.artist)}</p>
+            <p class="artist-link" 
+               title="${escapeHtml(album.artist)}"
+               onclick="event.stopPropagation(); showArtistPage('${escapeHtml(album.artist)}', ${album.artistId})">
+                ${escapeHtml(album.artist)}
+            </p>
             <span style="font-size:12px;color:var(--text-muted);">${album.tracks} треков</span>
         </div>
     `).join('');
 
-    container.querySelectorAll('.artist-link').forEach(link => {
-        link.addEventListener('click', (e) => {
-            e.stopPropagation();
-            showArtistPage(link.dataset.artist);
+    dom.albumsContainer.querySelectorAll('.album-card').forEach(card => {
+        card.addEventListener('click', () => {
+            showNotification('📀 Альбомы будут доступны в следующей версии', 'info');
+        });
+    });
+}
+
+function updateSearchHistory() {
+    if (!dom.searchHistory) return;
+    dom.searchHistory.innerHTML = state.searchHistory.map(query =>
+        `<span class="history-tag" data-query="${escapeHtml(query)}">${escapeHtml(query)}</span>`
+    ).join('');
+
+    dom.searchHistory.querySelectorAll('.history-tag').forEach(tag => {
+        tag.addEventListener('click', () => {
+            dom.searchInput.value = tag.dataset.query;
+            searchMusic(tag.dataset.query);
         });
     });
 }
 
 // ===== Artist Page =====
-function showArtistPage(artistName) {
-    const key = artistName.toLowerCase().trim();
-    const data = ARTIST_DB[key] || generateArtistData(artistName);
+async function showArtistPage(name, id) {
+    if (!checkOnlineStatus()) {
+        showNotification('❌ Нет соединения', 'error');
+        return;
+    }
+
+    const artistPage = dom.artistPageV2;
+    artistPage.classList.remove('hidden');
+    $$('#resultsSection, #albumsSection').forEach(el => el.classList.add('hidden'));
     
-    dom.artistAvatar.src = data.image;
-    dom.artistName.textContent = artistName;
-    dom.artistListeners.textContent = `${data.listeners} слушателей в месяц`;
-    dom.artistBio.textContent = data.bio;
-    dom.artistHeroBg.style.background = `linear-gradient(180deg, rgba(0,0,0,0.5) 0%, var(--bg-primary) 100%), url(${data.image}) center/cover`;
-    
-    // Render tracks
-    dom.artistTrackList.innerHTML = data.tracks.map((track, idx) => `
-        <div class="track-list-item" data-track-id="${track.id}">
-            <span class="track-number">${String(idx + 1).padStart(2, '0')}</span>
-            <img src="${track.cover}" alt="" class="track-list-cover">
-            <div class="track-list-info">
-                <div class="track-list-name">${escapeHtml(track.name)}</div>
-                <div class="track-list-artists">${escapeHtml(track.artists)}</div>
-            </div>
-            <span class="track-list-duration">${formatTime(track.duration)}</span>
-            <button class="track-list-like ${state.likedTracks.includes(track.id) ? 'liked' : ''}" data-track-id="${track.id}">
-                ${state.likedTracks.includes(track.id) ? '❤️' : '♡'}
-            </button>
+    artistPage.innerHTML = `
+        <div class="artist-page-v2__loading">
+            <div class="spinner"></div>
+            <p>Загрузка исполнителя...</p>
         </div>
-    `).join('');
+    `;
+    window.scrollTo(0, 0);
 
-    dom.artistTrackList.querySelectorAll('.track-list-item').forEach(item => {
-        item.addEventListener('click', () => {
-            const trackId = parseInt(item.dataset.trackId);
-            const track = data.tracks.find(t => t.id === trackId);
-            if (track) {
-                state.artistTracks = data.tracks.map(t => ({
-                    ...t,
-                    artist: t.artists,
-                    source: 'Demo',
-                    audio: null
-                }));
-                state.tracks = state.artistTracks;
-                state.playlist = state.artistTracks;
-                const idx = state.artistTracks.findIndex(t => t.id === trackId);
-                playTrack(idx);
-            }
-        });
-    });
+    try {
+        // Search for artist tracks on iTunes
+        const url = `${API_CONFIG.ITUNES_URL}?term=${encodeURIComponent(name)}&limit=50&entity=musicTrack`;
+        const response = await fetchWithTimeout(url);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
 
-    dom.artistTrackList.querySelectorAll('.track-list-like').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const trackId = parseInt(btn.dataset.trackId);
-            toggleLike(trackId, btn);
-        });
-    });
+        const tracks = (data.results || []).filter(item => item.kind === 'song').map(item => ({
+            id: item.trackId,
+            name: item.trackName || 'Без названия',
+            artist: item.artistName || name,
+            artistId: item.artistId,
+            album: item.collectionName || 'Альбом',
+            cover: item.artworkUrl100?.replace('100x100', '300x300') || 'https://via.placeholder.com/300',
+            audio: item.previewUrl,
+            duration: item.trackTimeMillis ? Math.floor(item.trackTimeMillis / 1000) : 180,
+            source: 'iTunes',
+            type: 'track'
+        }));
 
-    // Render release
-    if (data.release) {
-        dom.artistRelease.innerHTML = `
-            <img src="${data.release.cover}" alt="${escapeHtml(data.release.name)}">
-            <div class="release-info">
-                <h4>${escapeHtml(data.release.name)}</h4>
-                <p>Сингл · ${data.release.year}</p>
+        if (tracks.length === 0) {
+            throw new Error('Треки не найдены');
+        }
+
+        // Get artist info from first track
+        const firstTrack = tracks[0];
+        const artistImage = firstTrack.cover;
+        const trackCount = tracks.length;
+
+        state.artistTracks = tracks;
+        state.tracks = tracks;
+        state.playlist = tracks;
+        state.currentIndex = 0;
+
+        artistPage.innerHTML = `
+            <div class="artist-page-v2__header">
+                <button class="artist-page-v2__back" onclick="closeArtistPage()">← Назад</button>
+                <div class="artist-page-v2__hero">
+                    <img src="${artistImage}" alt="${escapeHtml(name)}" class="artist-page-v2__avatar" />
+                    <div class="artist-page-v2__info">
+                        <div class="artist-page-v2__badge">Исполнитель</div>
+                        <h1 class="artist-page-v2__name">${escapeHtml(name)}</h1>
+                        <div class="artist-page-v2__stats">
+                            <span> ${trackCount} треков</span>
+                            <span>📀 ${new Set(tracks.map(t => t.album)).size} альбомов</span>
+                        </div>
+                        <div class="artist-page-v2__actions">
+                            <button class="artist-page-v2__btn-primary" onclick="playArtistTopTrack()">▶ Слушать</button>
+                            <button class="artist-page-v2__btn-secondary" onclick="shareArtist('${escapeHtml(name)}')">📤 Поделиться</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="artist-page-v2__content">
+                <div class="artist-page-v2__section">
+                    <h2 class="artist-page-v2__section-title">Популярные треки</h2>
+                    <div class="artist-page-v2__track-list">
+                        ${tracks.slice(0, 10).map((track, idx) => `
+                            <div class="artist-page-v2__track-item" onclick="playArtistTrack(${idx})">
+                                <span class="artist-page-v2__track-number">${String(idx + 1).padStart(2, '0')}</span>
+                                <img src="${track.cover}" class="artist-page-v2__track-cover" style="width:48px;height:48px;border-radius:6px;object-fit:cover;" />
+                                <div class="artist-page-v2__track-info">
+                                    <div class="artist-page-v2__track-name">${escapeHtml(track.name)}</div>
+                                    <div class="artist-page-v2__track-artist">${escapeHtml(track.album)}</div>
+                                </div>
+                                <div class="artist-page-v2__track-meta">
+                                    <span class="artist-page-v2__track-duration">${formatTime(track.duration)}</span>
+                                    <button class="artist-page-v2__track-play" onclick="event.stopPropagation(); playArtistTrack(${idx})">▶</button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                ${tracks.length > 10 ? `
+                <div class="artist-page-v2__section">
+                    <h2 class="artist-page-v2__section-title">Все треки (${tracks.length})</h2>
+                    <div class="artist-page-v2__track-list">
+                        ${tracks.slice(10).map((track, idx) => `
+                            <div class="artist-page-v2__track-item" onclick="playArtistTrack(${idx + 10})">
+                                <span class="artist-page-v2__track-number">${String(idx + 11).padStart(2, '0')}</span>
+                                <img src="${track.cover}" class="artist-page-v2__track-cover" style="width:48px;height:48px;border-radius:6px;object-fit:cover;" />
+                                <div class="artist-page-v2__track-info">
+                                    <div class="artist-page-v2__track-name">${escapeHtml(track.name)}</div>
+                                    <div class="artist-page-v2__track-artist">${escapeHtml(track.album)}</div>
+                                </div>
+                                <div class="artist-page-v2__track-meta">
+                                    <span class="artist-page-v2__track-duration">${formatTime(track.duration)}</span>
+                                    <button class="artist-page-v2__track-play" onclick="event.stopPropagation(); playArtistTrack(${idx + 10})">▶</button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                ` : ''}
+            </div>
+        `;
+
+    } catch (error) {
+        console.error('Artist error:', error);
+        artistPage.innerHTML = `
+            <div class="artist-page-v2__error">
+                <div style="font-size:48px;margin-bottom:16px;">😢</div>
+                <p>Не удалось загрузить информацию об исполнителе</p>
+                <p style="color:var(--text-muted);font-size:14px;">${error.message}</p>
+                <button onclick="closeArtistPage()" class="artist-page-v2__btn-primary">← Назад</button>
             </div>
         `;
     }
-
-    // Update like button
-    const isFollowed = state.followedArtists.includes(artistName);
-    dom.artistLikeBtn.textContent = isFollowed ? '❤️' : '♡';
-
-    showPage('artist');
 }
 
-function generateArtistData(name) {
-    const tracks = DEMO_TRACKS.slice(0, 5).map((t, i) => ({
-        ...t,
-        id: 100 + i,
-        artists: name,
-        name: `${name} — Трек ${i + 1}`,
-        cover: `https://picsum.photos/seed/${name}${i}/300/300`
-    }));
-    return {
-        listeners: Math.floor(Math.random() * 10000000).toLocaleString('ru-RU'),
-        bio: `${name} — музыкальный исполнитель. Информация загружается из базы данных.`,
-        image: `https://picsum.photos/seed/${name}/400/400`,
-        tracks: tracks,
-        release: { name: 'Новый сингл', cover: `https://picsum.photos/seed/${name}release/300/300`, year: '2026' }
-    };
+function closeArtistPage() {
+    dom.artistPageV2.classList.add('hidden');
+    $$('#resultsSection, #albumsSection').forEach(el => el.classList.remove('hidden'));
 }
 
-function toggleLike(trackId, btn) {
-    if (state.likedTracks.includes(trackId)) {
-        state.likedTracks = state.likedTracks.filter(id => id !== trackId);
-        if (btn) { btn.textContent = '♡'; btn.classList.remove('liked'); }
-        showNotification('Лайк убран', 'info', 1500);
-    } else {
-        state.likedTracks.push(trackId);
-        if (btn) { btn.textContent = '❤️'; btn.classList.add('liked'); }
-        showNotification('❤️ Добавлено в любимое', 'success', 1500);
+function playArtistTopTrack() {
+    if (state.artistTracks && state.artistTracks.length > 0) {
+        playTrack(0);
     }
-    localStorage.setItem('mh_liked', JSON.stringify(state.likedTracks));
+}
+
+function playArtistTrack(index) {
+    if (state.artistTracks && state.artistTracks[index]) {
+        state.tracks = state.artistTracks;
+        state.playlist = state.artistTracks;
+        playTrack(index);
+    }
+}
+
+function shareArtist(name) {
+    const text = `Слушаю ${name} на MusicHub`;
+    if (navigator.share) {
+        navigator.share({ title: name, text, url: window.location.href }).catch(() => {});
+    } else {
+        navigator.clipboard.writeText(text).then(() => {
+            showNotification('📋 Скопировано', 'success');
+        });
+    }
 }
 
 // ===== Player =====
-function playTrack(index) {
+async function playTrack(index) {
     const track = state.tracks[index];
-    if (!track) return;
-    
+    if (!track) {
+        showNotification('Трек не найден', 'error');
+        return;
+    }
+
     state.currentIndex = index;
     state.currentTrack = track;
-    
-    updateMiniPlayer(track);
-    updateFullscreenPlayer(track);
-    
-    if (track.audio) {
-        dom.audioPlayer.src = track.audio;
-        dom.audioPlayer.play().then(() => {
-            state.isPlaying = true;
-            updatePlayButtons();
-        }).catch(() => {
-            showNotification('⚠️ Ошибка воспроизведения', 'error');
-        });
-    } else {
+
+    updatePlayerInfo(track);
+
+    if (!track.audio) {
+        showNotification('🔇 Нет ссылки для прослушивания', 'info', 3000);
+        return;
+    }
+
+    const audio = dom.audio;
+    audio.src = track.audio;
+    audio.load();
+
+    try {
+        await audio.play();
         state.isPlaying = true;
-        updatePlayButtons();
-        showNotification(`▶ ${track.name} — ${track.artist}`, 'info', 2000);
+        dom.playBtn.textContent = '⏸';
+        showNotification(`▶ ${track.name} - ${track.artist}`, 'info', 2000);
+    } catch (err) {
+        console.error('Playback error:', err);
+        showNotification('️ Ошибка воспроизведения', 'error', 4000);
+        dom.playBtn.textContent = '▶';
+        state.isPlaying = false;
     }
 }
 
-function updateMiniPlayer(track) {
-    dom.miniCover.src = track.cover || 'https://via.placeholder.com/60';
-    dom.miniTitle.textContent = track.name || 'Без названия';
-    dom.miniArtist.textContent = track.artist || 'Неизвестный';
-    
-    const isLiked = state.likedTracks.includes(track.id);
-    dom.miniLikeBtn.textContent = isLiked ? '❤️' : '🤍';
-}
-
-function updateFullscreenPlayer(track) {
-    dom.fsArtwork.src = track.cover || 'https://via.placeholder.com/400';
-    dom.fsTitle.textContent = track.name || 'Без названия';
-    dom.fsArtist.textContent = track.artist || 'Неизвестный';
-    dom.fsBg.style.backgroundImage = `url(${track.cover || 'https://via.placeholder.com/400'})`;
-    
-    const isLiked = state.likedTracks.includes(track.id);
-    dom.fsLikeBtn.textContent = isLiked ? '❤️' : '🤍';
-}
-
-function updatePlayButtons() {
-    const icon = state.isPlaying ? '⏸' : '▶';
-    dom.miniPlayBtn.textContent = icon;
-    dom.fsPlayBtn.textContent = icon;
+function updatePlayerInfo(track) {
+    dom.playerTitle.textContent = track.name || 'Без названия';
+    dom.playerArtist.textContent = track.artist || 'Неизвестный';
+    dom.playerCover.src = track.cover || 'https://via.placeholder.com/60';
 }
 
 function togglePlay() {
-    if (!state.currentTrack) {
-        if (state.tracks.length > 0) playTrack(0);
+    const audio = dom.audio;
+    if (!audio.src) {
+        if (state.currentTrack) playTrack(state.currentIndex);
         else showNotification('Сначала выберите трек', 'info');
         return;
     }
-    
-    if (state.currentTrack.audio) {
-        if (dom.audioPlayer.paused) {
-            dom.audioPlayer.play();
-            state.isPlaying = true;
-        } else {
-            dom.audioPlayer.pause();
-            state.isPlaying = false;
-        }
-    } else {
-        state.isPlaying = !state.isPlaying;
-    }
-    updatePlayButtons();
-}
 
-function nextTrack() {
-    if (state.tracks.length === 0) return;
-    if (state.isShuffle) {
-        state.currentIndex = Math.floor(Math.random() * state.tracks.length);
+    if (audio.paused) {
+        audio.play().catch(() => showNotification('Ошибка воспроизведения', 'error'));
+        dom.playBtn.textContent = '⏸';
+        state.isPlaying = true;
     } else {
-        state.currentIndex = (state.currentIndex + 1) % state.tracks.length;
+        audio.pause();
+        dom.playBtn.textContent = '▶';
+        state.isPlaying = false;
     }
-    playTrack(state.currentIndex);
 }
 
 function prevTrack() {
@@ -389,249 +732,209 @@ function prevTrack() {
     playTrack(state.currentIndex);
 }
 
-function openFullscreen() {
-    if (!state.currentTrack) {
+function nextTrack() {
+    if (state.tracks.length === 0) return;
+    state.currentIndex = (state.currentIndex + 1) % state.tracks.length;
+    playTrack(state.currentIndex);
+}
+
+function setupAudioEvents() {
+    const audio = dom.audio;
+    
+    audio.addEventListener('timeupdate', () => {
+        if (audio.duration && !isNaN(audio.duration)) {
+            dom.progressBar.value = (audio.currentTime / audio.duration) * 100;
+            dom.currentTime.textContent = formatTime(audio.currentTime);
+            dom.totalTime.textContent = formatTime(audio.duration);
+        }
+    });
+
+    dom.progressBar.addEventListener('input', () => {
+        if (audio.duration && !isNaN(audio.duration)) {
+            audio.currentTime = (dom.progressBar.value / 100) * audio.duration;
+        }
+    });
+
+    audio.addEventListener('ended', () => {
+        dom.playBtn.textContent = '▶';
+        state.isPlaying = false;
+        if (state.tracks.length > 1) {
+            state.currentIndex = (state.currentIndex + 1) % state.tracks.length;
+            playTrack(state.currentIndex);
+        }
+    });
+
+    audio.addEventListener('error', (e) => {
+        console.error('Audio error:', e);
+        dom.playBtn.textContent = '▶';
+        state.isPlaying = false;
+        showNotification('⚠️ Ошибка воспроизведения', 'error', 4000);
+    });
+}
+
+// ===== Download & Other Functions =====
+function downloadTrack(index) {
+    const track = state.tracks[index];
+    if (!track) {
+        showNotification('Трек не найден', 'error');
+        return;
+    }
+    showNotification('⬇ Функция скачивания в разработке', 'info', 3000);
+}
+
+function downloadPlaylist() {
+    if (!state.playlist || state.playlist.length === 0) {
+        showNotification('Плейлист пуст', 'info');
+        return;
+    }
+    showNotification('📋 Скачивание плейлиста в разработке', 'info', 3000);
+}
+
+async function showLyrics() {
+    const track = state.currentTrack;
+    if (!track) {
         showNotification('Сначала выберите трек', 'info');
         return;
     }
-    dom.fullscreenPlayer.classList.remove('hidden');
-}
 
-function closeFullscreen() {
-    dom.fullscreenPlayer.classList.add('hidden');
-}
+    dom.modalTitle.textContent = `📝 ${track.name} - ${track.artist}`;
+    dom.modalBody.innerHTML = '<div class="loading-spinner"><div class="spinner"></div></div>';
+    dom.modal.classList.remove('hidden');
+    state.modalOpen = true;
 
-// ===== Search =====
-function performSearch(query) {
-    if (!query.trim()) return;
-    
-    if (!state.searchHistory.includes(query)) {
-        state.searchHistory.unshift(query);
-        if (state.searchHistory.length > 10) state.searchHistory.pop();
+    try {
+        // Try to fetch lyrics from public API
+        const response = await fetchWithTimeout(
+            `https://api.lyrics.ovh/v1/${encodeURIComponent(track.artist)}/${encodeURIComponent(track.name)}`
+        );
+        
+        if (response.ok) {
+            const data = await response.json();
+            if (data.lyrics) {
+                dom.modalBody.innerHTML = escapeHtml(data.lyrics);
+                return;
+            }
+        }
+        
+        dom.modalBody.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:40px;">Текст не найден 😔</div>';
+    } catch (error) {
+        dom.modalBody.innerHTML = '<div style="text-align:center;color:#ef4444;padding:40px;">Ошибка загрузки текста</div>';
     }
-    
-    const results = DEMO_TRACKS.filter(t => 
-        t.name.toLowerCase().includes(query.toLowerCase()) ||
-        t.artist.toLowerCase().includes(query.toLowerCase()) ||
-        t.genre.toLowerCase().includes(query.toLowerCase())
-    );
-    
-    const albums = DEMO_ALBUMS.filter(a =>
-        a.name.toLowerCase().includes(query.toLowerCase()) ||
-        a.artist.toLowerCase().includes(query.toLowerCase())
-    );
-    
-    state.tracks = results.length > 0 ? results : DEMO_TRACKS.slice(0, 8);
-    state.playlist = state.tracks;
-    
-    dom.searchResults.innerHTML = `
-        <section>
-            <h2 class="section-title">🔍 Результаты: "${escapeHtml(query)}"</h2>
-            <div class="tracks-grid" id="searchTracksContainer"></div>
-        </section>
-        ${albums.length > 0 ? `
-        <section>
-            <h2 class="section-title">Альбомы</h2>
-            <div class="albums-grid" id="searchAlbumsContainer"></div>
-        </section>` : ''}
-    `;
-    
-    renderTracks(state.tracks, document.getElementById('searchTracksContainer'));
-    if (albums.length > 0) {
-        renderAlbums(albums, document.getElementById('searchAlbumsContainer'));
-    }
-    
-    showPage('search');
 }
 
-// ===== Setup =====
+function addToFavorites() {
+    const track = state.currentTrack;
+    if (!track) {
+        showNotification('Сначала выберите трек', 'info');
+        return;
+    }
+    showNotification('❤️ Добавлено в избранное', 'success', 2000);
+}
+
+async function shareTrack() {
+    const track = state.currentTrack;
+    if (!track) {
+        showNotification('Сначала выберите трек', 'info');
+        return;
+    }
+
+    const text = `${track.name} - ${track.artist}`;
+    if (navigator.share) {
+        try {
+            await navigator.share({ title: text, text, url: window.location.href });
+        } catch (error) {
+            if (error.name !== 'AbortError') showNotification('Ошибка шеринга', 'error');
+        }
+    } else {
+        navigator.clipboard.writeText(text).then(() => {
+            showNotification('📋 Скопировано в буфер обмена', 'success', 2000);
+        });
+    }
+}
+
+// ===== UI Setup =====
 function setupUI() {
-    // Navigation
-    $$('.nav-item').forEach(item => {
-        item.addEventListener('click', (e) => {
-            e.preventDefault();
-            showPage(item.dataset.page);
-        });
-    });
-
-    // Search
+    dom.searchBtn.addEventListener('click', () => searchMusic(dom.searchInput.value));
+    
     dom.searchInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') performSearch(dom.searchInput.value);
-    });
-    dom.searchInputPage.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') performSearch(dom.searchInputPage.value);
+        if (e.key === 'Enter') searchMusic(dom.searchInput.value);
     });
 
-    // Mini player controls
-    dom.miniPlayBtn.addEventListener('click', togglePlay);
-    dom.miniNext.addEventListener('click', nextTrack);
-    dom.miniPrev.addEventListener('click', prevTrack);
-    dom.miniExpandBtn.addEventListener('click', openFullscreen);
-    dom.miniCover.addEventListener('click', openFullscreen);
+    dom.playBtn.addEventListener('click', togglePlay);
+    dom.prevBtn.addEventListener('click', prevTrack);
+    dom.nextBtn.addEventListener('click', nextTrack);
     
-    dom.miniShuffle.addEventListener('click', () => {
-        state.isShuffle = !state.isShuffle;
-        dom.miniShuffle.classList.toggle('active', state.isShuffle);
-        showNotification(`🔀 Перемешивание ${state.isShuffle ? 'включено' : 'выключено'}`, 'info', 1500);
-    });
-    
-    dom.miniRepeat.addEventListener('click', () => {
-        state.isRepeat = !state.isRepeat;
-        dom.miniRepeat.classList.toggle('active', state.isRepeat);
-        showNotification(`🔁 Повтор ${state.isRepeat ? 'включён' : 'выключен'}`, 'info', 1500);
-    });
-
-    dom.miniLikeBtn.addEventListener('click', () => {
+    dom.showLyrics.addEventListener('click', showLyrics);
+    dom.downloadTrack.addEventListener('click', () => {
         if (state.currentTrack) {
-            toggleLike(state.currentTrack.id, dom.miniLikeBtn);
+            const idx = state.tracks.findIndex(t => t.id === state.currentTrack.id);
+            downloadTrack(idx !== -1 ? idx : state.currentIndex);
+        } else {
+            showNotification('Сначала выберите трек', 'info');
         }
-    });
-
-    // Fullscreen controls
-    dom.fsCloseBtn.addEventListener('click', closeFullscreen);
-    dom.fsPlayBtn.addEventListener('click', togglePlay);
-    dom.fsNext.addEventListener('click', nextTrack);
-    dom.fsPrev.addEventListener('click', prevTrack);
-    
-    dom.fsShuffle.addEventListener('click', () => {
-        state.isShuffle = !state.isShuffle;
-        dom.fsShuffle.classList.toggle('active', state.isShuffle);
-        dom.miniShuffle.classList.toggle('active', state.isShuffle);
     });
     
-    dom.fsRepeat.addEventListener('click', () => {
-        state.isRepeat = !state.isRepeat;
-        dom.fsRepeat.classList.toggle('active', state.isRepeat);
-        dom.miniRepeat.classList.toggle('active', state.isRepeat);
+    dom.downloadPlaylist.addEventListener('click', downloadPlaylist);
+    dom.addToFavorites.addEventListener('click', addToFavorites);
+    dom.shareTrack.addEventListener('click', shareTrack);
+
+    dom.modalClose.addEventListener('click', () => {
+        dom.modal.classList.add('hidden');
+        state.modalOpen = false;
     });
 
-    dom.fsLikeBtn.addEventListener('click', () => {
-        if (state.currentTrack) {
-            toggleLike(state.currentTrack.id, dom.fsLikeBtn);
-            dom.miniLikeBtn.textContent = state.likedTracks.includes(state.currentTrack.id) ? '❤️' : '🤍';
+    dom.modal.addEventListener('click', (e) => {
+        if (e.target === dom.modal) {
+            dom.modal.classList.add('hidden');
+            state.modalOpen = false;
         }
     });
 
-    dom.fsDownloadBtn.addEventListener('click', () => {
-        showNotification('⬇ Загрузка начата', 'success');
-    });
-
-    dom.fsLyricsBtn.addEventListener('click', () => {
-        if (state.currentTrack) showLyricsModal(state.currentTrack);
-    });
-
-    dom.fsQueueBtn.addEventListener('click', () => {
-        showNotification(' Очередь воспроизведения', 'info');
-    });
-
-    // Lyrics modal
-    dom.lyricsModalClose.addEventListener('click', () => dom.lyricsModal.classList.add('hidden'));
-    dom.lyricsModalOverlay.addEventListener('click', () => dom.lyricsModal.classList.add('hidden'));
-
-    // Artist page buttons
-    dom.artistPlayBtn.addEventListener('click', () => {
-        if (state.artistTracks.length > 0) playTrack(0);
-    });
-    dom.artistTrailerBtn.addEventListener('click', () => {
-        showNotification('🎬 Трейлер (демо)', 'info', 2000);
-    });
-    dom.artistLikeBtn.addEventListener('click', () => {
-        const name = dom.artistName.textContent;
-        if (state.followedArtists.includes(name)) {
-            state.followedArtists = state.followedArtists.filter(a => a !== name);
-            dom.artistLikeBtn.textContent = '♡';
-            showNotification('Отписка от исполнителя', 'info', 1500);
-        } else {
-            state.followedArtists.push(name);
-            dom.artistLikeBtn.textContent = '❤️';
-            showNotification(`❤️ Вы подписались на ${name}`, 'success', 1500);
-        }
-        localStorage.setItem('mh_followed', JSON.stringify(state.followedArtists));
-    });
-    dom.artistShareBtn.addEventListener('click', () => {
-        showNotification('📤 Ссылка скопирована', 'success', 1500);
-    });
-
-    // Station/Genre cards
-    $$('.station-card, .genre-card').forEach(card => {
-        card.addEventListener('click', () => {
-            const genre = card.dataset.genre;
-            performSearch(genre);
-        });
-    });
-
-    // Audio events
-    dom.audioPlayer.addEventListener('timeupdate', () => {
-        const audio = dom.audioPlayer;
-        if (audio.duration && !isNaN(audio.duration)) {
-            const progress = (audio.currentTime / audio.duration) * 100;
-            dom.miniProgressBar.value = progress;
-            dom.fsProgressBar.value = progress;
-            dom.miniCurrentTime.textContent = formatTime(audio.currentTime);
-            dom.miniTotalTime.textContent = formatTime(audio.duration);
-            dom.fsCurrentTime.textContent = formatTime(audio.currentTime);
-            dom.fsTotalTime.textContent = formatTime(audio.duration);
-        }
-    });
-
-    dom.miniProgressBar.addEventListener('input', () => {
-        const audio = dom.audioPlayer;
-        if (audio.duration && !isNaN(audio.duration)) {
-            audio.currentTime = (dom.miniProgressBar.value / 100) * audio.duration;
-        }
-    });
-
-    dom.fsProgressBar.addEventListener('input', () => {
-        const audio = dom.audioPlayer;
-        if (audio.duration && !isNaN(audio.duration)) {
-            audio.currentTime = (dom.fsProgressBar.value / 100) * audio.duration;
-        }
-    });
-
-    dom.audioPlayer.addEventListener('ended', () => {
-        if (state.isRepeat) {
-            dom.audioPlayer.currentTime = 0;
-            dom.audioPlayer.play();
-        } else {
-            nextTrack();
-        }
-    });
-
-    // Keyboard shortcuts
-    document.addEventListener('keydown', (e) => {
-        if (e.target.tagName === 'INPUT') return;
-        if (e.key === ' ') { e.preventDefault(); togglePlay(); }
-        if (e.key === 'ArrowRight') nextTrack();
-        if (e.key === 'ArrowLeft') prevTrack();
-        if (e.key === 'Escape') {
-            closeFullscreen();
-            dom.lyricsModal.classList.add('hidden');
-        }
-        if (e.key === 'f' || e.key === 'F') {
-            if (dom.fullscreenPlayer.classList.contains('hidden')) openFullscreen();
-            else closeFullscreen();
-        }
-    });
-
-    // Theme toggle (placeholder)
+    // Theme toggle
+    let darkTheme = true;
     dom.themeToggle.addEventListener('click', () => {
-        showNotification(' Тёмная тема активна', 'info', 1500);
+        darkTheme = !darkTheme;
+        const root = document.documentElement;
+        if (darkTheme) {
+            root.style.setProperty('--bg-primary', '#0a0a0f');
+            root.style.setProperty('--bg-secondary', '#12121a');
+            root.style.setProperty('--bg-card', '#1a1a2e');
+            root.style.setProperty('--text-primary', '#ffffff');
+            root.style.setProperty('--text-secondary', '#a0a0b8');
+            dom.themeToggle.textContent = '🌙';
+        } else {
+            root.style.setProperty('--bg-primary', '#f0f0f5');
+            root.style.setProperty('--bg-secondary', '#ffffff');
+            root.style.setProperty('--bg-card', '#ffffff');
+            root.style.setProperty('--text-primary', '#1a1a2e');
+            root.style.setProperty('--text-secondary', '#4a4a5e');
+            dom.themeToggle.textContent = '☀️';
+        }
     });
-}
 
-function showLyricsModal(track) {
-    dom.lyricsTitle.textContent = `📝 ${track.name} — ${track.artist}`;
-    dom.lyricsBody.innerHTML = `
-        <div class="lyrics-line">Куплет 1</div>
-        <div class="lyrics-line">Текст песни загружается...</div>
-        <div class="lyrics-line"> </div>
-        <div class="lyrics-line">Припев</div>
-        <div class="lyrics-line">Музыкальная композиция</div>
-        <div class="lyrics-line"> </div>
-        <div class="lyrics-line">Куплет 2</div>
-        <div class="lyrics-line">Продолжение текста...</div>
-    `;
-    dom.lyricsModal.classList.remove('hidden');
+    // Online/Offline events
+    window.addEventListener('online', () => {
+        state.isOnline = true;
+        hideOfflineError();
+        showNotification('🌐 Сеть восстановлена', 'info', 3000);
+    });
+
+    window.addEventListener('offline', () => {
+        state.isOnline = false;
+        showOfflineError();
+        showNotification('📡 Нет соединения', 'warning', 3000);
+    });
+
+    setupAudioEvents();
+
+    // Global functions
+    window.searchMusic = searchMusic;
+    window.showArtistPage = showArtistPage;
+    window.closeArtistPage = closeArtistPage;
+    window.playArtistTopTrack = playArtistTopTrack;
+    window.playArtistTrack = playArtistTrack;
+    window.playTrack = playTrack;
+    window.downloadTrack = downloadTrack;
 }
 
 // ===== Init =====
@@ -639,11 +942,25 @@ document.addEventListener('DOMContentLoaded', () => {
     initDom();
     setupUI();
     
-    // Initial render
-    state.tracks = DEMO_TRACKS;
-    state.playlist = DEMO_TRACKS;
-    renderTracks(DEMO_TRACKS, dom.tracksContainer);
-    renderAlbums(DEMO_ALBUMS, dom.albumsContainer);
+    checkOnlineStatus();
+    updateSearchHistory();
     
-    console.log(' MusicHub v3.0 loaded');
+    dom.audio.volume = state.volume || 0.8;
+
+    // Logo click
+    document.getElementById('logoLink')?.addEventListener('click', () => {
+        dom.searchInput.value = '';
+        if (state.isOnline) {
+            searchMusic('популярное');
+        }
+        closeArtistPage();
+    });
+
+    // Initial search
+    if (state.isOnline) {
+        searchMusic('популярное');
+    }
+
+    console.log('🎵 MusicHub v3.0 загружен');
+    console.log(`📊 Статус: ${state.isOnline ? 'Online' : 'Offline'}`);
 });
