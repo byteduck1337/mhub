@@ -48,7 +48,14 @@
                 <button id="searchBtn">Найти</button>
             </div>
             <div class="user-profile">
-                <div class="avatar">👤</div>
+                <div class="avatar" id="userAvatar">👤</div>
+                <div class="user-menu" id="userMenu">
+                    <button class="menu-btn">☰</button>
+                    <div class="menu-content">
+                        <a href="#" id="profileLink">Профиль</a>
+                        <a href="#" id="logoutBtn">Выйти</a>
+                    </div>
+                </div>
             </div>
         </header>
 
@@ -87,7 +94,7 @@
 
             <section class="results-area">
                 <div class="section-header">
-                    <h2 id="resultsTitle"> Популярное</h2>
+                    <h2 id="resultsTitle">🔥 Популярное</h2>
                     <span class="count-badge" id="resultsCount">0 треков</span>
                 </div>
                 <div class="tracks-grid" id="tracksContainer"></div>
@@ -108,9 +115,9 @@
                     <div class="artist-details">
                         <span class="artist-type">Исполнитель</span>
                         <h1 class="artist-name" id="artName">—</h1>
-                        <div class="artist-stats" id="artStats">Загрузка...</div>
+                        <div class="artist-stats" id="artStats">0 слушателей в месяц</div>
                         <div class="artist-actions">
-                            <button class="btn-listen" id="artPlayBtn">▶ Слушать всё</button>
+                            <button class="btn-listen" id="artPlayBtn">▶ Слушать</button>
                             <button class="btn-trailer">Трейлер</button>
                             <button class="btn-icon-action" id="artLikeBtn">♡</button>
                             <button class="btn-icon-action">↗</button>
@@ -128,6 +135,37 @@
                 <div class="col-side">
                     <h2 class="sec-title">Новый релиз</h2>
                     <div class="release-card" id="artRelease"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- User Profile View -->
+        <div id="profileView" class="view hidden">
+            <div class="profile-hero">
+                <button class="back-btn" onclick="showHome()">← Назад</button>
+                <div class="profile-layout">
+                    <div class="profile-avatar">
+                        <div class="avatar-circle" id="profileAvatar">👤</div>
+                        <div class="profile-edit-btn">✎</div>
+                    </div>
+                    <div class="profile-details">
+                        <h1 class="profile-name" id="profileName">Имя пользователя</h1>
+                        <div class="profile-stats">
+                            <span>❤️ <span id="profileLikes">0</span> лайков</span>
+                            <span>⏱ <span id="profileHistory">0</span> треков</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="profile-content-split">
+                <div class="col-main">
+                    <h2 class="sec-title">Избранные треки</h2>
+                    <div class="track-list-v2" id="likedTracksList"></div>
+                </div>
+                <div class="col-side">
+                    <h2 class="sec-title">История прослушивания</h2>
+                    <div class="history-list" id="historyList"></div>
                 </div>
             </div>
         </div>
@@ -187,7 +225,30 @@
                 <button class="fs-c"></button>
             </div>
             <div class="fs-actions-bottom">
-                 <button class="fs-action-btn" id="fsDownloadBtn"> Скачать MP3</button>
+                <button class="fs-action-btn" id="fsDownloadBtn"> Скачать MP3</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Profile Modal -->
+    <div class="modal hidden" id="profileModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Регистрация</h2>
+                <button class="modal-close" id="modalClose">✕</button>
+            </div>
+            <div class="modal-body">
+                <form id="profileForm">
+                    <div class="form-group">
+                        <label for="username">Имя пользователя</label>
+                        <input type="text" id="username" placeholder="Ваше имя" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input type="email" id="email" placeholder="Ваш email" required>
+                    </div>
+                    <button type="submit" class="btn-primary">Создать аккаунт</button>
+                </form>
             </div>
         </div>
     </div>
