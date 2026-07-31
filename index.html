@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MusicHub</title>
     <link rel="stylesheet" href="style.css" />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800;900&display=swap" rel="stylesheet" />
 </head>
 <body>
 
@@ -15,69 +15,86 @@
                 <span class="logo-icon">🎵</span>
                 <span class="logo-text">Music<span class="highlight">Hub</span></span>
             </div>
+            <nav class="nav-links">
+                <a href="#" class="active">Search</a>
+                <a href="#">Home</a>
+                <a href="#">Radio</a>
+            </nav>
             <div class="search-container">
                 <div class="search-wrapper">
                     <span class="search-icon">🔍</span>
-                    <input type="text" id="searchInput" placeholder="Ispolnitel, trek, albom..." />
-                    <button id="searchBtn">Nayti</button>
+                    <input type="text" id="searchInput" placeholder="Search artists, tracks, albums..." />
                 </div>
-                <div id="searchHistory" class="search-history"></div>
             </div>
             <div class="header-actions">
-                <button id="themeToggle" title="Tema">🌙</button>
+                <button id="themeToggle" title="Theme">🌙</button>
             </div>
         </div>
     </header>
 
     <main>
+        <!-- Modal -->
         <div id="modal" class="modal hidden">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h2 id="modalTitle">Zagolovok</h2>
+                    <h2 id="modalTitle">Title</h2>
                     <button id="modalClose" class="modal-close">✕</button>
                 </div>
                 <div id="modalBody" class="modal-body"></div>
             </div>
         </div>
 
+        <!-- Hero Section -->
+        <section class="hero-section">
+            <div class="hero-content">
+                <h1>Over 100 million songs<br />free for 1 month</h1>
+                <p>Free trial subscription</p>
+                <button class="hero-btn" onclick="searchMusic('pop')">▶ Start Listening</button>
+            </div>
+            <div class="hero-badge">🔥 Popular</div>
+        </section>
+
+        <!-- Tracks Section -->
         <section id="resultsSection">
             <div class="section-header">
-                <h2 id="resultsTitle">🔥 Populyarnoe</h2>
+                <h2 id="resultsTitle">🔥 Top Tracks</h2>
                 <span id="resultsCount" class="results-count"></span>
             </div>
             <div id="tracksContainer" class="tracks-grid"></div>
         </section>
 
+        <!-- Albums Section -->
         <section id="albumsSection">
             <div class="section-header">
-                <h2>🎷 Albomy</h2>
+                <h2>💿 Albums</h2>
             </div>
             <div id="albumsContainer" class="albums-grid"></div>
         </section>
 
+        <!-- Artist Page -->
         <section id="artistSection" class="hidden">
-            <div class="section-header">
-                <button id="backToSearch" class="back-btn">← Nazad</button>
-                <h2 id="artistName">Ispolnitel</h2>
+            <div class="artist-page">
+                <button id="backToSearch" class="back-btn">← Back</button>
+                <div id="artistInfo" class="artist-info-modern"></div>
+                <div id="artistTracks" class="tracks-grid"></div>
             </div>
-            <div id="artistInfo" class="artist-info"></div>
-            <div id="artistTracks" class="tracks-grid"></div>
         </section>
     </main>
 
+    <!-- Player -->
     <footer id="player" class="player">
         <div class="player-left">
             <img id="playerCover" class="player-cover" src="https://via.placeholder.com/60" alt="Cover" />
             <div class="player-track-info">
-                <div id="playerTitle" class="player-title">Viberite trek</div>
-                <div id="playerArtist" class="player-artist">Nachnite poisk</div>
+                <div id="playerTitle" class="player-title">Select a track</div>
+                <div id="playerArtist" class="player-artist">Start searching</div>
             </div>
         </div>
         <div class="player-center">
             <div class="player-controls">
-                <button id="prevBtn" class="control-btn" title="Predydushiy">⏮</button>
+                <button id="prevBtn" class="control-btn">⏮</button>
                 <button id="playBtn" class="control-btn play-btn">▶</button>
-                <button id="nextBtn" class="control-btn" title="Sleduyushiy">⏭</button>
+                <button id="nextBtn" class="control-btn">⏭</button>
             </div>
             <div class="player-progress">
                 <span id="currentTime" class="time">0:00</span>
@@ -86,11 +103,11 @@
             </div>
         </div>
         <div class="player-right">
-            <button id="downloadTrackBtn" class="action-btn" title="Skachat trek">⬇</button>
-            <button id="downloadPlaylistBtn" class="action-btn" title="Skachat pleylist">📋</button>
-            <button id="showLyricsBtn" class="action-btn" title="Tekst pesni">📝</button>
-            <button id="shareTrackBtn" class="action-btn" title="Podelitsya">📤</button>
-            <button id="addToFavoritesBtn" class="action-btn" title="V izbrannoe">❤️</button>
+            <button id="downloadTrackBtn" class="action-btn" title="Download">⬇</button>
+            <button id="downloadPlaylistBtn" class="action-btn" title="Playlist">📋</button>
+            <button id="showLyricsBtn" class="action-btn" title="Lyrics">📝</button>
+            <button id="shareTrackBtn" class="action-btn" title="Share">📤</button>
+            <button id="addToFavoritesBtn" class="action-btn" title="Favorite">❤️</button>
         </div>
         <audio id="audioPlayer"></audio>
     </footer>
