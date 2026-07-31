@@ -3,260 +3,275 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MusicHub - Слушай и Скачивай</title>
+    <title>MusicHub</title>
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 </head>
 <body>
-    <!-- Sidebar -->
+    <!-- Sidebar Navigation -->
     <aside class="sidebar">
-        <div class="logo" id="logoLink">
+        <div class="sidebar-logo">
             <span class="logo-icon">🎵</span>
-            <span class="logo-text">Music<span class="highlight">Hub</span></span>
+            <span class="logo-text">MusicHub</span>
         </div>
-        
-        <nav class="main-nav">
+        <nav class="sidebar-nav">
             <a href="#" class="nav-item active" data-page="home">
-                <span class="nav-icon">🏠</span> Главная
+                <span class="nav-icon">🏠</span>
+                <span>Главная</span>
             </a>
             <a href="#" class="nav-item" data-page="search">
-                <span class="nav-icon">🔍</span> Поиск
+                <span class="nav-icon">🔍</span>
+                <span>Поиск</span>
             </a>
             <a href="#" class="nav-item" data-page="library">
-                <span class="nav-icon"></span> Медиатека
+                <span class="nav-icon">📚</span>
+                <span>Медиатека</span>
             </a>
             <a href="#" class="nav-item" data-page="radio">
-                <span class="nav-icon">📻</span> Радио
+                <span class="nav-icon">📻</span>
+                <span>Радио</span>
             </a>
         </nav>
-
-        <div class="playlists-section">
-            <h3>ПЛЕЙЛИСТЫ</h3>
-            <a href="#" class="playlist-item"><span class="p-icon">❤️</span> Избранное</a>
-            <a href="#" class="playlist-item"><span class="p-icon"></span> Недавние</a>
-            <a href="#" class="playlist-item"><span class="p-icon">✨</span> Рекомендации</a>
+        <div class="sidebar-playlists">
+            <h3>Плейлисты</h3>
+            <a href="#" class="playlist-item">❤️ Избранное</a>
+            <a href="#" class="playlist-item">🕐 Недавние</a>
+            <a href="#" class="playlist-item">🎯 Рекомендации</a>
         </div>
     </aside>
 
-    <!-- Main Content Area -->
-    <div class="app-container">
-        <!-- Top Bar (Search) -->
-        <header class="top-bar">
-            <div class="search-box">
-                <span class="s-icon">🔍</span>
-                <input type="text" id="searchInput" placeholder="Поиск треков, исполнителей, альбомов...">
-                <button id="searchBtn">Найти</button>
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Home Page -->
+        <div id="homePage" class="page active">
+            <header class="top-header">
+                <div class="search-bar">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="searchInput" placeholder="Поиск треков, исполнителей, альбомов...">
+                </div>
+                <div class="header-actions">
+                    <button class="theme-toggle" id="themeToggle">🌙</button>
+                    <div class="user-avatar">👤</div>
+                </div>
+            </header>
+
+            <div class="page-content">
+                <section class="featured-section">
+                    <h2 class="section-title">Избранные радиостанции</h2>
+                    <div class="stations-grid">
+                        <div class="station-card large" data-genre="pop" style="background: linear-gradient(135deg, #ff6b9d, #c44569);">
+                            <div class="station-content">
+                                <span class="station-label">ИЗБРАННАЯ РАДИОСТАНЦИЯ</span>
+                                <h3>Легкий поп</h3>
+                                <p>Станция MusicHub</p>
+                            </div>
+                        </div>
+                        <div class="station-card large" data-genre="hits" style="background: linear-gradient(135deg, #f9ca24, #f0932b);">
+                            <div class="station-content">
+                                <span class="station-label">ИЗБРАННАЯ РАДИОСТАНЦИЯ</span>
+                                <h3>Хиты</h3>
+                                <p>Станция MusicHub</p>
+                            </div>
+                        </div>
+                        <div class="station-card large" data-genre="hiphop" style="background: linear-gradient(135deg, #686de0, #4834d4);">
+                            <div class="station-content">
+                                <span class="station-label">ИЗБРАННАЯ РАДИОСТАНЦИЯ</span>
+                                <h3>Хип-хоп</h3>
+                                <p>Станция MusicHub</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="genre-section">
+                    <h2 class="section-title">Станции по жанрам</h2>
+                    <div class="genre-grid">
+                        <div class="genre-card" data-genre="hits" style="background: linear-gradient(135deg, #f9ca24, #f0932b);">
+                            <span class="genre-label">Хиты</span>
+                        </div>
+                        <div class="genre-card" data-genre="hiphop-ru" style="background: linear-gradient(135deg, #686de0, #4834d4);">
+                            <span class="genre-label">Хип-хоп на русском</span>
+                        </div>
+                        <div class="genre-card" data-genre="electronic" style="background: linear-gradient(135deg, #00b894, #00cec9);">
+                            <span class="genre-label">Электроника</span>
+                        </div>
+                        <div class="genre-card" data-genre="pop" style="background: linear-gradient(135deg, #fd79a8, #e84393);">
+                            <span class="genre-label">Поп</span>
+                        </div>
+                        <div class="genre-card" data-genre="classic" style="background: linear-gradient(135deg, #a29bfe, #6c5ce7);">
+                            <span class="genre-label">Классика</span>
+                        </div>
+                        <div class="genre-card" data-genre="rock" style="background: linear-gradient(135deg, #636e72, #2d3436);">
+                            <span class="genre-label">Рок</span>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="tracks-section">
+                    <h2 class="section-title">🎵 Популярное</h2>
+                    <div class="tracks-grid" id="tracksContainer"></div>
+                </section>
+
+                <section class="albums-section">
+                    <h2 class="section-title">🎷 Альбомы</h2>
+                    <div class="albums-grid" id="albumsContainer"></div>
+                </section>
             </div>
-            <div class="user-profile">
-                <div class="avatar" id="userAvatar">👤</div>
-                <div class="user-menu" id="userMenu">
-                    <button class="menu-btn">☰</button>
-                    <div class="menu-content">
-                        <a href="#" id="profileLink">Профиль</a>
-                        <a href="#" id="logoutBtn">Выйти</a>
-                    </div>
-                </div>
-            </div>
-        </header>
+        </div>
 
-        <!-- Home Page View -->
-        <main id="homeView" class="view active">
-            <section class="featured-stations">
-                <h2>Избранные радиостанции</h2>
-                <div class="stations-grid">
-                    <div class="station-card pink" onclick="searchMusic('Pop')">
-                        <span class="st-label">ИЗБРАННАЯ РАДИОСТАНЦИЯ</span>
-                        <h3>Легкий поп</h3>
-                        <p>Станция MusicHub</p>
-                    </div>
-                    <div class="station-card yellow" onclick="searchMusic('Hits')">
-                        <span class="st-label">ИЗБРАННАЯ РАДИОСТАНЦИЯ</span>
-                        <h3>Хиты</h3>
-                        <p>Станция MusicHub</p>
-                    </div>
-                    <div class="station-card purple" onclick="searchMusic('Hip Hop')">
-                        <span class="st-label">ИЗБРАННАЯ РАДИОСТАНЦИЯ</span>
-                        <h3>Хип-хоп</h3>
-                        <p>Станция MusicHub</p>
-                    </div>
-                </div>
-            </section>
-
-            <section class="genre-stations">
-                <h2>Станции по жанрам</h2>
-                <div class="genres-row">
-                    <div class="genre-card g-yellow" onclick="searchMusic('Rock')"></div>
-                    <div class="genre-card g-purple" onclick="searchMusic('Jazz')"></div>
-                    <div class="genre-card g-teal" onclick="searchMusic('Electronic')"></div>
-                    <div class="genre-card g-pink" onclick="searchMusic('Indie')"></div>
-                </div>
-            </section>
-
-            <section class="results-area">
-                <div class="section-header">
-                    <h2 id="resultsTitle">🔥 Популярное</h2>
-                    <span class="count-badge" id="resultsCount">0 треков</span>
-                </div>
-                <div class="tracks-grid" id="tracksContainer"></div>
-                
-                <div class="section-header" style="margin-top: 40px;">
-                    <h2>🎷 Альбомы</h2>
-                </div>
-                <div class="albums-grid" id="albumsContainer"></div>
-            </section>
-        </main>
-
-        <!-- Artist Page View -->
-        <div id="artistView" class="view hidden">
+        <!-- Artist Page -->
+        <div id="artistPage" class="page">
             <div class="artist-hero">
-                <button class="back-btn" onclick="showHome()">← Назад</button>
-                <div class="artist-layout">
-                    <img src="" alt="Artist" class="artist-avatar" id="artAvatar">
-                    <div class="artist-details">
-                        <span class="artist-type">Исполнитель</span>
-                        <h1 class="artist-name" id="artName">—</h1>
-                        <div class="artist-stats" id="artStats">0 слушателей в месяц</div>
-                        <div class="artist-actions">
-                            <button class="btn-listen" id="artPlayBtn">▶ Слушать</button>
-                            <button class="btn-trailer">Трейлер</button>
-                            <button class="btn-icon-action" id="artLikeBtn">♡</button>
-                            <button class="btn-icon-action">↗</button>
-                            <button class="btn-icon-action"></button>
+                <div class="artist-hero-bg" id="artistHeroBg"></div>
+                <div class="artist-hero-content">
+                    <button class="back-btn" onclick="showPage('home')">← Назад</button>
+                    <div class="artist-info-row">
+                        <img src="" alt="Artist" class="artist-avatar" id="artistAvatar">
+                        <div class="artist-details">
+                            <span class="artist-type">Исполнитель</span>
+                            <h1 class="artist-name" id="artistName">—</h1>
+                            <div class="artist-stats">
+                                <span id="artistListeners">0 слушателей в месяц</span>
+                            </div>
+                            <div class="artist-actions">
+                                <button class="btn-primary" id="artistPlayBtn">▶ Слушать</button>
+                                <button class="btn-secondary" id="artistTrailerBtn">🎬 Трейлер</button>
+                                <button class="btn-icon" id="artistLikeBtn">♡</button>
+                                <button class="btn-icon" id="artistShareBtn">📤</button>
+                                <button class="btn-icon" id="artistMoreBtn">⋯</button>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-            
-            <div class="artist-content-split">
-                <div class="col-main">
-                    <h2 class="sec-title">Популярные треки</h2>
-                    <div class="track-list-v2" id="artTrackList"></div>
+
+            <div class="artist-content">
+                <div class="artist-main">
+                    <section class="popular-tracks">
+                        <h2 class="section-title">Популярные треки</h2>
+                        <div class="track-list" id="artistTrackList"></div>
+                    </section>
                 </div>
-                <div class="col-side">
-                    <h2 class="sec-title">Новый релиз</h2>
-                    <div class="release-card" id="artRelease"></div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- User Profile View -->
-        <div id="profileView" class="view hidden">
-            <div class="profile-hero">
-                <button class="back-btn" onclick="showHome()">← Назад</button>
-                <div class="profile-layout">
-                    <div class="profile-avatar">
-                        <div class="avatar-circle" id="profileAvatar">👤</div>
-                        <div class="profile-edit-btn">✎</div>
-                    </div>
-                    <div class="profile-details">
-                        <h1 class="profile-name" id="profileName">Имя пользователя</h1>
-                        <div class="profile-stats">
-                            <span>❤️ <span id="profileLikes">0</span> лайков</span>
-                            <span>⏱ <span id="profileHistory">0</span> треков</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="profile-content-split">
-                <div class="col-main">
-                    <h2 class="sec-title">Избранные треки</h2>
-                    <div class="track-list-v2" id="likedTracksList"></div>
-                </div>
-                <div class="col-side">
-                    <h2 class="sec-title">История прослушивания</h2>
-                    <div class="history-list" id="historyList"></div>
+                <div class="artist-side">
+                    <section class="new-release">
+                        <h2 class="section-title">Новый релиз</h2>
+                        <div class="release-card" id="artistRelease"></div>
+                    </section>
+                    <section class="artist-bio">
+                        <h2 class="section-title">О исполнителе</h2>
+                        <div class="bio-text" id="artistBio">Информация загружается...</div>
+                    </section>
                 </div>
             </div>
         </div>
-    </div>
+
+        <!-- Search Page -->
+        <div id="searchPage" class="page">
+            <header class="top-header">
+                <div class="search-bar large">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="searchInputPage" placeholder="Что хотите послушать?">
+                </div>
+            </header>
+            <div class="page-content">
+                <div id="searchResults"></div>
+            </div>
+        </div>
+    </main>
 
     <!-- Mini Player -->
-    <div class="mini-player">
-        <div class="mp-left" onclick="openFullscreen()">
-            <img src="https://via.placeholder.com/60" class="mp-cover" id="mpCover">
-            <div class="mp-info">
-                <div class="mp-title" id="mpTitle">Выберите трек</div>
-                <div class="mp-artist" id="mpArtist">Начните поиск</div>
+    <div class="mini-player" id="miniPlayer">
+        <div class="mini-player-left">
+            <img src="https://via.placeholder.com/60" alt="Cover" class="mini-cover" id="miniCover">
+            <div class="mini-track-info">
+                <div class="mini-title" id="miniTitle">Выберите трек</div>
+                <div class="mini-artist" id="miniArtist">Начните поиск</div>
             </div>
         </div>
-        <div class="mp-center">
-            <div class="mp-controls">
-                <button class="ctrl-btn" id="prevBtn"></button>
-                <button class="play-btn-lg" id="playBtn">▶</button>
-                <button class="ctrl-btn" id="nextBtn">⏭</button>
+        <div class="mini-player-center">
+            <div class="mini-controls">
+                <button class="control-btn" id="miniShuffle">🔀</button>
+                <button class="control-btn" id="miniPrev">⏮</button>
+                <button class="play-btn" id="miniPlayBtn">▶</button>
+                <button class="control-btn" id="miniNext">⏭</button>
+                <button class="control-btn" id="miniRepeat">🔁</button>
             </div>
-            <div class="mp-progress-wrap">
-                <span class="time-txt" id="curTime">0:00</span>
-                <input type="range" id="progBar" min="0" max="100" value="0">
-                <span class="time-txt" id="totTime">0:00</span>
+            <div class="mini-progress">
+                <span class="time" id="miniCurrentTime">0:00</span>
+                <input type="range" class="progress-bar" id="miniProgressBar" min="0" max="100" value="0">
+                <span class="time" id="miniTotalTime">0:00</span>
             </div>
         </div>
-        <div class="mp-right">
-            <button class="act-btn" id="likeBtn">🤍</button>
-            <button class="act-btn" id="expandBtn">⛶</button>
+        <div class="mini-player-right">
+            <button class="action-btn" id="miniLikeBtn">🤍</button>
+            <button class="action-btn" id="miniExpandBtn">⛶</button>
         </div>
     </div>
 
-    <!-- Fullscreen Player Overlay -->
-    <div class="fs-player hidden" id="fsPlayer">
+    <!-- Fullscreen Player -->
+    <div class="fullscreen-player hidden" id="fullscreenPlayer">
         <div class="fs-bg" id="fsBg"></div>
-        <div class="fs-ui">
-            <button class="fs-close" onclick="closeFullscreen()">✕</button>
-            <div class="fs-art">
-                <img src="" id="fsImg">
+        <div class="fs-content">
+            <button class="fs-close" id="fsCloseBtn">✕</button>
+            <div class="fs-artwork">
+                <img src="" alt="Artwork" id="fsArtwork">
             </div>
-            <div class="fs-meta">
-                <h2 id="fsTitle">—</h2>
-                <p id="fsArtist">—</p>
+            <div class="fs-info">
+                <h2 class="fs-title" id="fsTitle">—</h2>
+                <p class="fs-artist" id="fsArtist">—</p>
             </div>
-            <div class="fs-prog">
-                <input type="range" id="fsProg" min="0" max="100" value="0">
+            <div class="fs-progress">
+                <input type="range" class="fs-progress-bar" id="fsProgressBar" min="0" max="100" value="0">
                 <div class="fs-times">
-                    <span id="fsCur">0:00</span>
-                    <span id="fsTot">0:00</span>
+                    <span id="fsCurrentTime">0:00</span>
+                    <span id="fsTotalTime">0:00</span>
                 </div>
             </div>
-            <div class="fs-ctrls">
-                <button class="fs-c">🔀</button>
-                <button class="fs-c" id="fsPrev">⏮</button>
-                <button class="fs-play" id="fsPlay">▶</button>
-                <button class="fs-c" id="fsNext">⏭</button>
-                <button class="fs-c"></button>
+            <div class="fs-controls">
+                <button class="fs-control" id="fsShuffle">🔀</button>
+                <button class="fs-control" id="fsPrev">⏮</button>
+                <button class="fs-play-btn" id="fsPlayBtn">▶</button>
+                <button class="fs-control" id="fsNext">⏭</button>
+                <button class="fs-control" id="fsRepeat">🔁</button>
             </div>
-            <div class="fs-actions-bottom">
-                <button class="fs-action-btn" id="fsDownloadBtn"> Скачать MP3</button>
+            <div class="fs-actions">
+                <button class="fs-action" id="fsLikeBtn">🤍</button>
+                <button class="fs-action" id="fsDownloadBtn">⬇</button>
+                <button class="fs-action" id="fsLyricsBtn">📝</button>
+                <button class="fs-action" id="fsQueueBtn">📋</button>
             </div>
         </div>
     </div>
 
-    <!-- User Profile Modal -->
-    <div class="modal hidden" id="profileModal">
+    <!-- Lyrics Modal -->
+    <div class="modal hidden" id="lyricsModal">
+        <div class="modal-overlay" id="lyricsModalOverlay"></div>
         <div class="modal-content">
             <div class="modal-header">
-                <h2 id="modalTitle">Регистрация</h2>
-                <button class="modal-close" id="modalClose">✕</button>
+                <h2 id="lyricsTitle">Текст песни</h2>
+                <button class="modal-close" id="lyricsModalClose">✕</button>
             </div>
-            <div class="modal-body">
-                <form id="profileForm">
-                    <div class="form-group">
-                        <label for="username">Имя пользователя</label>
-                        <input type="text" id="username" placeholder="Ваше имя" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="email">Email</label>
-                        <input type="email" id="email" placeholder="Ваш email" required>
-                    </div>
-                    <button type="submit" class="btn-primary">Создать аккаунт</button>
-                </form>
+            <div class="modal-body" id="lyricsBody">
+                <div class="loading-spinner"><div class="spinner"></div></div>
             </div>
         </div>
     </div>
 
-    <!-- Notification Toast -->
-    <div class="toast hidden" id="toast"></div>
+    <!-- Offline Error Overlay -->
+    <div class="offline-overlay hidden" id="offlineOverlay">
+        <div class="offline-content">
+            <div class="offline-icon">👿</div>
+            <h1 class="offline-title">Ошибка 666</h1>
+            <h2 class="offline-subtitle">Адский Сатана</h2>
+            <p class="offline-message">Нет соединения с интернетом. Повторите попытку позже.</p>
+            <button class="offline-retry" id="offlineRetryBtn">🔄 Попробовать снова</button>
+        </div>
+    </div>
 
-    <audio id="audio" preload="auto"></audio>
+    <!-- Notification -->
+    <div class="notification hidden" id="notification"></div>
+
+    <audio id="audioPlayer" preload="auto"></audio>
     <script src="script.js"></script>
 </body>
 </html>
